@@ -46,7 +46,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       finally { setIsLoading(false); }
     })();
   }, []);
-  const login = async (email: string, password: string) => { await api.login(email, password); setCurrentUserState(await api.getMe()); setError(''); };
+  const login = async (email: string, password: string) => {
+    await api.login(email, password);
+    const profile = await api.getMe();
+    setApiUserId(profile.id);
+    setCurrentUserState(profile);
+    setError('');
+  };
   const logout = async () => { await api.logout(); ++sequence.current; setApiUserId(''); setCurrentUserState(null); };
   const switchRole = (role: Role) => { const user = users.find(u => u.role === role); if (user) void setCurrentUser(user); };
   return <AuthContext.Provider value={{ users, currentUser, setCurrentUser, switchRole, isLoading, refreshUsers, demoMode, error, login, logout }}>{children}</AuthContext.Provider>;
