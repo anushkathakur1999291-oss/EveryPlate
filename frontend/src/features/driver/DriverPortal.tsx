@@ -180,13 +180,20 @@ export const DriverPortal: React.FC = () => {
             <span>Your delivery workspace</span>
           </div>
           <h1 className="text-2xl font-semibold text-stone-950">{driverProfile?.fullName || 'Driver'}</h1>
-          <p className="text-xs text-stone-600 mt-1">
-            Vehicle: <strong className="text-stone-800">{driverProfile?.vehicleType}</strong> • Status: <span className="text-emerald-800 font-semibold">{myJobs.length ? 'On a delivery' : 'Ready for a delivery'}</span>
+          <p className="text-xs text-stone-600 mt-1 flex items-center gap-2 flex-wrap">
+            <span>Vehicle: <strong className="text-stone-800">{driverProfile?.vehicleType}</strong></span>
+            <span>•</span>
+            <span className="flex items-center gap-1.5 text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 pulse-radar" />
+              <span>GPS Telemetry Active</span>
+            </span>
+            <span>•</span>
+            <span className="text-stone-700 font-medium">{myJobs.length ? 'On a delivery' : 'Ready for a delivery'}</span>
           </p>
         </div>
         <button
           onClick={fetchJobs}
-          className="flex items-center gap-2 px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-medium border border-stone-300 transition"
+          className="interactive-btn flex items-center gap-2 px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-medium border border-stone-300 transition"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Refresh Jobs</span>
@@ -213,7 +220,7 @@ export const DriverPortal: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {availableJobs.map((job) => (
-                <div key={job.deliveryId} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4">
+                <div key={job.deliveryId} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4 interactive-card reveal-on-scroll">
                   <div className="flex items-start justify-between">
                     <div>
                       <span className="px-2 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-amber-500/20 text-amber-800 border border-amber-500/30">
@@ -248,9 +255,19 @@ export const DriverPortal: React.FC = () => {
                   <button
                     disabled={!!claimingId || myJobs.length > 0}
                     onClick={() => handleClaimJob(job.deliveryId)}
-                    className="w-full bg-stone-900 hover:bg-stone-800 text-white font-bold py-2.5 rounded-lg text-xs shadow-none shadow-none transition flex items-center justify-center gap-2"
+                    className="relative overflow-hidden w-full interactive-btn bg-stone-900 hover:bg-stone-800 disabled:bg-stone-800 text-white font-bold py-2.5 rounded-lg text-xs shadow-none transition flex items-center justify-center gap-2"
                   >
-                    <span>{claimingId === job.deliveryId ? 'Comparing available couriers…' : myJobs.length ? 'Finish your current delivery first' : 'Accept pickup'}</span>
+                    {claimingId === job.deliveryId ? (
+                      <>
+                        <div className="absolute inset-0 bg-emerald-800/80 shimmer-fx" />
+                        <div className="relative z-10 flex items-center gap-2">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-200" />
+                          <span>Evaluating Fair Assignment (2s window)...</span>
+                        </div>
+                      </>
+                    ) : (
+                      <span>{myJobs.length ? 'Finish your current delivery first' : 'Accept pickup'}</span>
+                    )}
                   </button>
                 </div>
               ))}
@@ -286,7 +303,7 @@ export const DriverPortal: React.FC = () => {
                 const isCompleted = !!delivery.deliveryVerifiedAt;
 
                 return (
-                  <div key={item.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4">
+                  <div key={item.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4 interactive-card">
                     <div className="flex items-start justify-between">
                       <div>
                         <span className="text-xs font-semibold text-stone-600">
@@ -340,7 +357,7 @@ export const DriverPortal: React.FC = () => {
                           />
                           <button
                             onClick={() => handleVerifyPickupOtp(delivery.id)}
-                            className="bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-4 py-2 rounded-lg text-xs transition"
+                            className="interactive-btn bg-emerald-800 hover:bg-emerald-900 text-white font-bold px-4 py-2 rounded-lg text-xs transition"
                           >
                             Verify Pickup
                           </button>
@@ -384,7 +401,7 @@ export const DriverPortal: React.FC = () => {
                           />
                           <button
                             onClick={() => handleVerifyDeliveryOtp(delivery.id)}
-                            className="bg-stone-900 hover:bg-stone-800 text-white font-bold px-4 py-2 rounded-lg text-xs transition"
+                            className="interactive-btn bg-stone-900 hover:bg-stone-800 text-white font-bold px-4 py-2 rounded-lg text-xs transition"
                           >
                             Verify Delivery
                           </button>
@@ -396,7 +413,7 @@ export const DriverPortal: React.FC = () => {
                     {!isPickedUp && (
                       <button
                         onClick={() => handleCancelJob(delivery.id)}
-                        className="text-xs text-rose-800 hover:text-rose-800 font-semibold pt-2 flex items-center gap-1.5 transition"
+                        className="interactive-btn text-xs text-rose-800 hover:text-rose-900 font-semibold pt-2 flex items-center gap-1.5 transition"
                       >
                         <AlertTriangle className="w-3.5 h-3.5" />
                         <span>Cancel Delivery Claim (Requires Reason)</span>
