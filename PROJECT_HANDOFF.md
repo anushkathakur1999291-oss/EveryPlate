@@ -89,6 +89,65 @@ No AGENTS.md found. The project was untracked at initial takeover; the working t
 - Production static directory override for non-container hosting; readiness queries an actual session table. HTTPS browser proof verifies Secure cookie and production account/session flow.
 - Existing development DB upgraded through migration005 after SQLite backup and copy proof. Core counts unchanged: 11 users, 2 donations, 2 allocations, 2 deliveries, 2 impact records; integrity/foreign-key checks pass. Latest backup `/tmp/annsafe-before-recovery-schedule.db`; temporary backups need durable retention by operator.
 
+### Upgrade 1: Response-Based / Interactive UX (Anime.js interaction philosophy)
+- **Design Philosophy**: USER ACTION → SYSTEM RESPONSE → VISUAL FEEDBACK. Restrained, intentional microinteractions without flashiness or disorienting parallax. Full respect for `prefers-reduced-motion: reduce`.
+- **CSS Motion & Feedback Toolkit (`frontend/src/index.css`)**:
+  - `.interactive-card`: Subtle elevation (`translateY(-2px)`), refined drop-shadow, and micro-compression on press (`scale(0.992)`).
+  - `.interactive-btn`: Fast tactile response (`translateY(-1px)` on hover, `scale(0.975)` on press).
+  - `.pulse-radar`: Gentle breathing beacon for live telemetry status and pending action alerts.
+  - `.scan-laser`: Moving green laser line across image preview during vision inspection.
+  - `.capacity-gauge-fill`: Hardware-accelerated smooth cubic-bezier transitions for allocation capacity changes.
+  - `.shimmer-fx`: Loading shimmer for 2-second fair dispatch arbitration.
+  - `.reveal-on-scroll`: Staggered entry animation for metrics and incoming opportunity cards.
+- **Cross-Role Implementations**:
+  - **DONOR**: Interactive donation cards with real-time status pulses; contextual submit button with spinner ("Evaluating Receiver Matches..."); Food Vision scanner with animated laser inspection and pre-fill feedback.
+  - **RECEIVER**: Dynamic capacity gauge with smooth transitions; `.interactive-card` on incoming allocations with pulsing `PROPOSED` status radar; interactive Accept/Decline/Fulfillment buttons.
+  - **DRIVER**: Available pickup cards with interactive elevation; animated 2-second fair assignment arbitration window with shimmer effect; live GPS Telemetry broadcast heartbeat indicator; two-step custody card progression.
+  - **ADMIN**: Live network telemetry sync badge; `.interactive-card` on verified impact counters (Meals Rescued, Weight Diverted, CO2e Avoided) and EPA/UN FAO environmental equivalent metrics with `.reveal-on-scroll`.
+
+### Upgrade 2: Donor Image-to-Donation Local Vision-Language ML Engine
+- **Local Vision Pipeline**:
+  - Runs 100% locally via Ollama (`http://localhost:11434`) using NVIDIA RTX 4050 Laptop GPU (2.1 GB VRAM used, ~4 GB free).
+  - Primary Vision Model: `moondream:latest` (1.6B SigLIP/Phi-2 vision-language model).
+  - Structuring Model: `gemma2:2b` (2.6B LLM) with deterministic semantic regex fallback parser.
+  - Inference Latency: ~700ms - 2.5s warm latency.
+- **Backend Service (`backend/src/services/ai/food-vision.service.ts`)**:
+  - Strict server-side Zod validation (`FoodVisionResultSchema`) enforcing canonical categories: `COOKED_MEALS`, `BAKERY`, `PRODUCE`, `DAIRY`, `PACKAGED_GOODS`, `CANNED_GOODS`, `BEVERAGES`, `RAW_INGREDIENTS`.
+  - Extracts portion estimates, dietary tags (vegetarian, vegan, non-vegetarian, packaged), safe shelf-life windows, confidence score, and uncertainty warnings.
+  - Concurrency limiter (max 2 parallel inferences), 15s timeout, base64 payload sanitizer, and non-blocking graceful fallback.
+  - Endpoints: `GET /api/ai/vision-status`, `POST /api/ai/analyze-food-image`.
+  - Body-parser configuration: Dedicated 12MB limit for `/api/ai/analyze-food-image` mounted before the global 32kb middleware.
+- **Frontend Component (`frontend/src/components/donor/FoodVisionScanner.tsx`)**:
+  - Drag & drop zone, file browse input (up to 12MB), live image preview, clear/replace controls.
+  - Quick-test sample buttons: "🍗 Catered Meals" and "🍎 Fresh Produce & Bread" for instant testing.
+  - Live engine status badge (`● Ollama Ready (moondream)`).
+  - Scanning laser bar animation and contextual status messages.
+  - Structured result card: Category badge, items detected, portion estimate, dietary chips, calibrated confidence, uncertainty notes.
+  - "Apply to Donation Form" button: Pre-fills category, description, portion count, safe shelf-life, and notes.
+  - Non-blocking design: If Ollama is offline or analysis fails, a clear advisory is displayed and manual form entry is never blocked.
+- **Verification & Benchmarks**:
+  - Vision Benchmark: `backend/scripts/test-vision-eval.mjs` (100% pass, ~2.5s latency, 88% confidence).
+  - End-to-End Browser Test: `frontend/scripts/test-vision-and-ux.mjs` (100% pass in Playwright browser).
+  - Screenshots captured and verified in artifact directory: `food_vision_result.png`, `donor_portal_prefilled.png`.
+
+### Upgrade 3: Google Maps Address Descriptors & RescueMap Engine
+- **Address Descriptors & Landmarks Integration (`frontend/src/components/GoogleAddressDescriptorMap.tsx`)**:
+  - Implements the official Google Maps Address Descriptors & Places Autocomplete specification.
+  - Dynamically loads Google Maps via `google.maps.importLibrary("maps")`, `google.maps.importLibrary("places")`, and `google.maps.importLibrary("marker")`.
+  - Configured with the user-specified vector `mapId: "f8b9e6163e48e501"` and Gurgaon center coordinates (`{ lat: 28.43268, lng: 77.0459 }`).
+  - Draggable `AdvancedMarkerElement` (`gmpDraggable: true`) with automated reverse geocoding on dragend.
+  - Places Autocomplete (`#address-autocomplete`) populates structured form fields (`#apt-suite`, `#city`, `#state-province`, `#zip-postal-code`, `#country`).
+  - Uses `geocoder.geocode({ extraComputations: ['ADDRESS_DESCRIPTORS'] })` to detect nearby spatial landmarks.
+  - Places numbered `.descriptor-marker` badges on the map with interactive hover `InfoWindow` previews and synchronized dropdown selection (`#landmarks`).
+  - Generates combined address output (`#combined-address`) pairing formatted street address with spatial landmark instructions.
+  - Embedded into `DonorPortal.tsx` to allow donors to pinpoint loading docks and provide landmark cues for transporters.
+- **Rescue Operations Map (`frontend/src/components/RescueMap.tsx`)**:
+  - Upgraded to render points and routes using Google Maps `mapId: "f8b9e6163e48e501"`, `AdvancedMarkerElement`, `PinElement`, and `Polyline`.
+  - Automatic fallback to Leaflet if Google Maps is unavailable or blocked by network policies.
+- **Verification**:
+  - `frontend/scripts/test-google-maps.mjs`: Verified all 9 DOM elements and map instances in headless browser (100% pass).
+  - Screenshot captured: `google_address_descriptors_donor.png`.
+
 ## VERIFIED
 
 - Backend TypeScript and frontend TypeScript/Vite builds pass. Initial JS ~280.22kB / 88.59kB gzip; Leaflet/roles split.
@@ -99,6 +158,18 @@ No AGENTS.md found. The project was untracked at initial takeover; the working t
 - Production HTTPS test passes account creation, built static UI, Secure/HttpOnly/SameSite cookie, refresh, disabled demo directory and logout revocation (`/tmp/annsafe-production-1OKMBg`). This uses a local temporary TLS proxy, not a deployed environment.
 - Frontend lint exits0 with nine React hook/fast-refresh warnings; not zero warnings.
 - Docker Compose config validates, but daemon access denied even outside sandbox. Container build/run remains unverified.
+
+### Upgrade 4: Full Dark Mode Design System & Dynamic Tile Switching
+- **Theme Architecture**: Built [`frontend/src/context/ThemeContext.tsx`](file:///home/samashech/Documents/Annsafe/frontend/src/context/ThemeContext.tsx) with `localStorage` persistence (`annsafe_theme`), system preference fallback (`prefers-color-scheme: dark`), and reactive DOM synchronization (`html.dark`, `data-theme="dark"`, `colorScheme="dark"`).
+- **Theme Toggle Component**: Built [`frontend/src/components/ThemeToggle.tsx`](file:///home/samashech/Documents/Annsafe/frontend/src/components/ThemeToggle.tsx) featuring animated `Sun` and `Moon` icons from `lucide-react`, integrated directly into:
+  - Global Application Navbar (`.account-tools` top-right) for all 4 roles.
+  - 3D Role Selection / SignIn screen header for instant theme switching before authentication.
+- **Palette & Typography**: Implemented a rich dark slate/obsidian canvas (`#121413`), elevated dark surfaces (`#181b19`), subtle dividers (`#28302b`), high-contrast typography (`#f3f4f3` / `#d1d5db`), glowing emerald accent badges, amber timer pills, and tuned dark-mode box shadows.
+- **Map Tile Synchronization**: Upgraded [`RescueMap.tsx`](file:///home/samashech/Documents/Annsafe/frontend/src/components/RescueMap.tsx) to dynamically swap tile layers:
+  - Light mode: CartoDB Voyager
+  - Dark mode: CartoDB Dark Matter (`rastertiles/dark_all`)
+  - Styled Leaflet dark popups and Google Maps descriptor markers for crisp dark readability.
+- **E2E Test Coverage**: Added [`frontend/scripts/test-dark-mode.mjs`](file:///home/samashech/Documents/Annsafe/frontend/scripts/test-dark-mode.mjs) and verified across all roles (Donor, Receiver, Driver, Admin).
 
 ## PARTIALLY IMPLEMENTED / REMAINING
 
@@ -123,11 +194,16 @@ PostgreSQL migration only with a concrete multi-node need; distributed socket ad
 npm --prefix backend run build
 npm --prefix frontend run build
 npm --prefix frontend run lint
-node backend/scripts/test-hardening.mjs  # needs localhost binding
+node backend/scripts/test-vision-eval.mjs    # local vision benchmark evaluation (moondream)
+node frontend/scripts/test-vision-and-ux.mjs # end-to-end browser test with vision & response UX
+node frontend/scripts/test-google-maps.mjs   # Google Maps Address Descriptors validation
+node frontend/scripts/test-dark-mode.mjs     # dark mode toggle, persistence & portal test
+node backend/scripts/test-hardening.mjs      # needs localhost binding
 node backend/scripts/test-regression.mjs
 node backend/scripts/demo.mjs
-node frontend/scripts/check-browser.mjs     # build backend first; browser + local listeners
-node frontend/scripts/check-production.mjs  # build both first; currently failing readiness
+node frontend/scripts/check-browser.mjs         # build backend first; browser + local listeners
+node frontend/scripts/check-production.mjs      # build both first; passes 100%
 ```
 
 Do not recreate the application or overwrite user data. Continue from actual code and this handoff. Update this document after the remaining work, distinguishing implemented, partial, remaining and optional work.
+

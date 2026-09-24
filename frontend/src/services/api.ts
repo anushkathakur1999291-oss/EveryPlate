@@ -45,6 +45,9 @@ export const api = {
     quantity: number;
     safeDeadline: string;
     notes?: string;
+    pickupAddress?: string;
+    pickupLatitude?: number;
+    pickupLongitude?: number;
   }) => request<{ donation: Donation; matchingSummary: any[] }>('/donations', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -125,7 +128,7 @@ export const api = {
   getImpactSummary: () => request<ImpactSummary>('/impact/summary'),
   getAdminDashboard: () => request<any>('/admin/dashboard'),
 
-  // AI System-1 Decision Engine (Laya)
+  // AI System-1 Decision Engine (Laya) & Vision
   parseDonationWithAI: (text: string) =>
     request<LayaDonationParseResult>('/ai/parse-donation', {
       method: 'POST',
@@ -137,5 +140,12 @@ export const api = {
     request<LayaDispatchRecommendation>('/ai/recommend-mode', {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+  getVisionStatus: () =>
+    request<import('../types').VisionStatus>('/ai/vision-status'),
+  analyzeFoodImage: (imageBase64: string, mimeType?: string) =>
+    request<import('../types').FoodVisionResult>('/ai/analyze-food-image', {
+      method: 'POST',
+      body: JSON.stringify({ imageBase64, mimeType }),
     }),
 };

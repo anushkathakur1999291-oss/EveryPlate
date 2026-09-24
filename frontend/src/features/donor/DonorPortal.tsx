@@ -5,7 +5,9 @@ import { useSocketEvent } from '../../context/SocketContext';
 import { api } from '../../services/api';
 import { Donation, LayaDonationParseResult } from '../../types';
 import { CountdownTimer } from '../../components/CountdownTimer';
-import { Utensils, Clock, AlertCircle, Key, RefreshCw, PlusCircle, ShieldAlert, Sparkles, Zap } from 'lucide-react';
+import { FoodVisionScanner } from '../../components/donor/FoodVisionScanner';
+import { GoogleAddressDescriptorMap } from '../../components/GoogleAddressDescriptorMap';
+import { Utensils, Clock, AlertCircle, Key, RefreshCw, PlusCircle, ShieldAlert, Sparkles, Zap, MapPin } from 'lucide-react';
 
 export const DonorPortal: React.FC = () => {
   const [actionError, setActionError] = useState('');
@@ -24,6 +26,9 @@ export const DonorPortal: React.FC = () => {
   const [hoursUntilDeadline, setHoursUntilDeadline] = useState<number>(3);
   const [extractedDeadline, setExtractedDeadline] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>('');
+  const [pickupAddress, setPickupAddress] = useState<string>('');
+  const [pickupLatitude, setPickupLatitude] = useState<number | undefined>(undefined);
+  const [pickupLongitude, setPickupLongitude] = useState<number | undefined>(undefined);
 
   // Laya System-1 Intake Assistant State
   const [aiText, setAiText] = useState<string>('');
@@ -76,6 +81,9 @@ export const DonorPortal: React.FC = () => {
         quantity,
         safeDeadline,
         notes: notes || undefined,
+        pickupAddress: pickupAddress || undefined,
+        pickupLatitude,
+        pickupLongitude,
       });
 
       setFoodDescription('');
@@ -106,6 +114,23 @@ export const DonorPortal: React.FC = () => {
       setActionError(err.message);
     } finally {
       setIsAiLoading(false);
+    }
+  };
+
+  const handleVisionApply = (data: {
+    foodCategory: string;
+    foodDescription: string;
+    quantity: number;
+    notes?: string;
+    suggestedDeadlineHours?: number;
+  }) => {
+    setFoodCategory(data.foodCategory);
+    setFoodDescription(data.foodDescription);
+    if (data.quantity > 0) setQuantity(data.quantity);
+    if (data.notes) setNotes(data.notes);
+    if (data.suggestedDeadlineHours) {
+      setHoursUntilDeadline(data.suggestedDeadlineHours);
+      setExtractedDeadline(null);
     }
   };
 
@@ -163,8 +188,11 @@ export const DonorPortal: React.FC = () => {
             </div>
           )}
 
+          {/* Upgrade 2: Food Vision Scanner */}
+          <FoodVisionScanner onApply={handleVisionApply} />
+
           {/* Laya System-1 AI Intake Assistant */}
-          <details className="bg-stone-50    border border-stone-300 rounded-lg p-3.5 space-y-3">
+          <details className="bg-stone-50 border border-stone-300 rounded-lg p-3.5 space-y-3">
             <summary className="cursor-pointer font-medium text-sm">Quick fill from kitchen notes</summary>
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-stone-700">
@@ -321,6 +349,36 @@ export const DonorPortal: React.FC = () => {
               </div>
             </div>
 
+            {/* Google Maps Address Descriptors & Pickup Location */}
+            <details className="bg-stone-50 border border-stone-200 rounded-lg p-3 space-y-3">
+              <summary className="cursor-pointer font-medium text-xs text-stone-800 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-800" />
+                  <span>Pickup Location & Landmarks (Google Maps)</span>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Address Descriptors
+                </span>
+              </summary>
+              <p className="text-[11px] text-stone-500">
+                Search address or drag the pin. Nearby landmarks will be automatically detected to guide couriers directly to your door or loading dock.
+              </p>
+              <GoogleAddressDescriptorMap
+                height="280px"
+                onLocationSelect={(loc) => {
+                  setPickupAddress(loc.formattedAddress);
+                  setPickupLatitude(loc.latitude);
+                  setPickupLongitude(loc.longitude);
+                  if (loc.landmark) {
+                    setNotes((prev) => {
+                      const base = prev.split(' • Landmark:')[0].trim();
+                      return base ? `${base} • Landmark: ${loc.landmark}` : `Landmark: ${loc.landmark}`;
+                    });
+                  }
+                }}
+              />
+            </details>
+
             <div>
               <label className="block text-xs font-semibold text-stone-700 mb-1.5">Pickup Instructions (Optional)</label>
               <input
@@ -335,9 +393,19 @@ export const DonorPortal: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-2.5 rounded-lg text-xs shadow-none shadow-none transition disabled:opacity-50"
+              className="w-full interactive-btn bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-2.5 rounded-lg text-xs shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {isSubmitting ? 'Evaluating Receiver Matches...' : 'Create donation'}
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Evaluating Receiver Matches...</span>
+                </>
+              ) : (
+                <>
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Create donation</span>
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -361,7 +429,7 @@ export const DonorPortal: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {donations.map((d) => (
-                <div key={d.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4">
+                <div key={d.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4 interactive-card reveal-on-scroll">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
@@ -408,7 +476,7 @@ export const DonorPortal: React.FC = () => {
                             {alloc.delivery && !alloc.delivery.pickupVerifiedAt && !['COMPLETED','EXPIRED','DELIVERY_FAILED'].includes(alloc.delivery.status) && (
                               <button
                                 onClick={() => showPickupOtp(alloc.delivery!.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-800 rounded-lg text-xs font-bold border border-emerald-500/30 transition shrink-0"
+                                className="interactive-btn flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-800 rounded-lg text-xs font-bold border border-emerald-500/30 transition shrink-0"
                               >
                                 <Key className="w-3.5 h-3.5" />
                                 <span>View Pickup OTP</span>

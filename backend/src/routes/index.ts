@@ -53,7 +53,9 @@ router.post('/deliveries/:id/switch-mode', authorizeDelivery('switch'), validate
 router.get('/impact/summary', ImpactController.getImpactSummary);
 router.get('/admin/dashboard', requireRole(Role.ADMIN), ImpactController.getAdminDashboard);
 
-// 7. AI System-1 Decision Engine (Laya)
+// 7. AI System-1 Decision Engine & Vision (Laya & FoodVision)
+router.get('/ai/vision-status', AIController.getVisionStatus);
+router.post('/ai/analyze-food-image', AIController.analyzeFoodImage);
 router.post('/ai/parse-donation', AIController.parseDonation);
 router.post('/ai/recommend-mode', AIController.recommendMode);
 

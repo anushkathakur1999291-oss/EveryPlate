@@ -33,16 +33,24 @@ try {
  const page=await context.newPage();
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin);
- await page.getByLabel('Email').fill('admin@test.invalid');
- await page.getByLabel('Password').fill(password);
- await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ const continueBtn = page.getByRole('button', { name: /continue to sign in/i });
+ await continueBtn.waitFor({ state: 'visible', timeout: 10000 });
+ await continueBtn.click();
+ await page.getByLabel('Email address').fill('admin@test.invalid');
+ await page.getByLabel('Password', { exact: true }).fill(password);
+ await page.getByRole('button',{name:/sign in/i}).click();
+
  await page.locator('.product-header').waitFor();
  const cookie=(await context.cookies()).find(c=>c.name==='__Host-rescue_session');
  assert(cookie?.secure && cookie.httpOnly && cookie.sameSite==='Strict');
  assert.equal((await context.request.get(`${origin}/api/auth/users`)).status(),404);
  await page.reload();await page.locator('.product-header').waitFor();
  await page.getByRole('button',{name:'Sign out',exact:true}).click();
- await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();
+ await continueBtn.waitFor({ state: 'visible', timeout: 10000 });
+ await continueBtn.click();
+ await page.getByRole('button',{name:/sign in/i}).waitFor();
+
+
  assert.equal((await context.request.get(`${origin}/api/auth/me`,{headers:{cookie:`__Host-rescue_session=${cookie.value}`,'x-user-id':'forged'}})).status(),401);
  assert.deepEqual(errors,[]);
  console.log('PASS production account provisioning, built static UI, HTTPS Secure cookie, refresh, logout revocation and disabled demo directory');

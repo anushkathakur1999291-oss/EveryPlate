@@ -227,3 +227,32 @@ export interface LayaDispatchRecommendation {
   executionTimeMs: number;
 }
 
+export interface FoodVisionResult {
+  foodCategory: 'COOKED_MEALS' | 'BAKERY' | 'PRODUCE' | 'DAIRY' | 'PACKAGED_GOODS' | 'CANNED_GOODS' | 'BEVERAGES' | 'RAW_INGREDIENTS';
+  foodName: string;
+  itemsDetected: string[];
+  isCooked: boolean;
+  vegetarian: boolean;
+  nonVegetarian: boolean;
+  packaged: boolean;
+  estimatedPortions: number | null;
+  estimatedQuantity: number | null;
+  quantityUnit: string;
+  confidence: number;
+  visualNotes: string;
+  uncertainFields: string[];
+  modelUsed: string;
+  latencyMs: number;
+  provider: string;
+  fallback: boolean;
+}
+
+export interface VisionStatus {
+  available: boolean;
+  provider: string;
+  model: string;
+  latencyMs?: number;
+  message: string;
+}
+
+

@@ -180,8 +180,8 @@ export const ReceiverPortal: React.FC = () => {
           </div>
 
           <div className="w-full h-3 bg-stone-100 rounded-full overflow-hidden flex">
-            <div style={{ width: `${occPct}%` }} className="bg-stone-900 h-full" title={`Occupied: ${currentOcc}`} />
-            <div style={{ width: `${resPct}%` }} className="bg-amber-500 h-full" title={`Reserved Incoming: ${reserved}`} />
+            <div style={{ width: `${occPct}%` }} className="bg-stone-900 h-full capacity-gauge-fill" title={`Occupied: ${currentOcc}`} />
+            <div style={{ width: `${resPct}%` }} className="bg-amber-500 h-full capacity-gauge-fill" title={`Reserved Incoming: ${reserved}`} />
           </div>
 
           <div className="flex items-center justify-between text-xs text-stone-600 pt-1">
@@ -220,19 +220,20 @@ export const ReceiverPortal: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {allocations.map((alloc) => (
-              <div key={alloc.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4 flex flex-col justify-between">
+              <div key={alloc.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4 flex flex-col justify-between interactive-card reveal-on-scroll">
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <span className="px-2 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-stone-100 text-stone-700 border border-stone-300">
                       {alloc.donation?.foodCategory.replace('_', ' ')}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold ${
-                      alloc.status === 'PROPOSED' ? 'bg-amber-500/20 text-amber-800 border border-amber-500/30 ' :
+                    <span className={`px-2 py-0.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+                      alloc.status === 'PROPOSED' ? 'bg-amber-500/20 text-amber-800 border border-amber-500/30' :
                       alloc.status === 'ACCEPTED' ? 'bg-emerald-500/20 text-emerald-800 border border-emerald-500/30' :
                       alloc.status === 'COMPLETED' ? 'bg-stone-100 text-stone-700 border border-stone-300' :
                       'bg-stone-100 text-stone-700'
                     }`}>
-                      {alloc.status}
+                      {alloc.status === 'PROPOSED' && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 pulse-radar" />}
+                      <span>{alloc.status}</span>
                     </span>
                   </div>
 
@@ -293,14 +294,14 @@ export const ReceiverPortal: React.FC = () => {
                     <div className="flex items-center gap-2 w-full">
                       <button
                         onClick={() => handleAccept(alloc.id)}
-                        className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
+                        className="interactive-btn flex-1 bg-emerald-800 hover:bg-emerald-900 text-white py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
                         <span>Accept</span>
                       </button>
                       <button
                         onClick={() => setRejectingAllocationId(alloc.id)}
-                        className="flex-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-800 border border-rose-500/30 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
+                        className="interactive-btn flex-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-800 border border-rose-500/30 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         <span>Decline</span>
@@ -311,7 +312,7 @@ export const ReceiverPortal: React.FC = () => {
                   {alloc.status === 'ACCEPTED' && !alloc.delivery && (
                     <button
                       onClick={() => openFulfillmentModal(alloc)}
-                      className="w-full bg-stone-900 hover:bg-stone-800 text-white py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
+                      className="interactive-btn w-full bg-stone-900 hover:bg-stone-800 text-white py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>Select Fulfillment Method</span>
@@ -321,7 +322,7 @@ export const ReceiverPortal: React.FC = () => {
                   {alloc.delivery && !['COMPLETED','EXPIRED','DELIVERY_FAILED'].includes(alloc.delivery.status) && (
                     <button
                       onClick={() => showDeliveryOtp(alloc.delivery!.id)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-stone-100 hover:bg-stone-100 text-stone-700 rounded-lg text-xs font-bold border border-stone-300 transition"
+                      className="interactive-btn w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-bold border border-stone-300 transition"
                     >
                       <Key className="w-3.5 h-3.5" />
                       <span>View Delivery OTP (To Confirm Receipt)</span>

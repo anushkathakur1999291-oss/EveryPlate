@@ -47,4 +47,35 @@ export class AIController {
       respondError(req, res, err);
     }
   }
+
+  /**
+   * Status and availability check for local food vision engine
+   */
+  static async getVisionStatus(req: Request, res: Response) {
+    try {
+      const { FoodVisionService } = await import('../services/ai/food-vision.service');
+      const status = await FoodVisionService.checkStatus();
+      res.json(status);
+    } catch (err: any) {
+      respondError(req, res, err);
+    }
+  }
+
+  /**
+   * Local Vision Analysis for Donor Food Images
+   */
+  static async analyzeFoodImage(req: Request, res: Response) {
+    try {
+      const { imageBase64, mimeType } = req.body;
+      if (!imageBase64 || typeof imageBase64 !== 'string') {
+        return res.status(400).json({ error: 'imageBase64 string is required for food vision analysis' });
+      }
+
+      const { FoodVisionService } = await import('../services/ai/food-vision.service');
+      const result = await FoodVisionService.analyzeFoodImage(imageBase64, mimeType);
+      res.json(result);
+    } catch (err: any) {
+      respondError(req, res, err);
+    }
+  }
 }

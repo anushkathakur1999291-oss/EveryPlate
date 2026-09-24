@@ -24,6 +24,7 @@ export const io = SocketService.initialize(server);
 app.disable('x-powered-by');
 app.use(operational);
 app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use('/api/ai/analyze-food-image', express.json({ limit: '12mb' }));
 app.use(express.json({ limit: '32kb' }));
 app.use(authMiddleware);
 

@@ -1,47 +1,103 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
-:root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #232522; background: #f8f8f5; font-synthesis: none; text-rendering: optimizeLegibility; }
+
+@custom-variant dark (&:where(.dark, .dark *));
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #232522;
+  background: #f8f8f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  color-scheme: light;
+}
+
+html.dark {
+  color: #f3f4f3;
+  background: #121413;
+  color-scheme: dark;
+}
+
 body { margin: 0; min-width: 320px; }
+html.dark body { background: #121413; color: #f3f4f3; }
+
 button, input, select, textarea { font: inherit; }
 button, select { cursor: pointer; }
 button { min-height: 40px; }
 button:disabled { opacity: .5; cursor: wait; }
 input, select, textarea { min-height: 44px; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #18684c; outline-offset: 3px; }
+html.dark button:focus-visible, html.dark a:focus-visible, html.dark input:focus-visible, html.dark select:focus-visible, html.dark textarea:focus-visible { outline: 2px solid #10b981; outline-offset: 3px; }
+
 h1 { letter-spacing: -.035em; line-height: 1.2; }
 p { line-height: 1.6; }
-.product-header { background: white; border-bottom: 1px solid #e4e5df; position: sticky; top: 0; z-index: 1100; }
+.product-header { background: white; border-bottom: 1px solid #e4e5df; position: sticky; top: 0; z-index: 1100; transition: background-color 0.2s ease, border-color 0.2s ease; }
+html.dark .product-header { background: #161917; border-bottom: 1px solid #262d29; }
+
 .product-topline, .product-navline { max-width: 1200px; margin: auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .product-topline { height: 76px; }
-.wordmark { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 650; letter-spacing: -.6px; white-space: nowrap; }
-.brand-mark { display: grid; place-items: center; background: #233f31; color: white; width: 34px; height: 34px; border-radius: 7px; }
+.wordmark { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 650; letter-spacing: -.6px; white-space: nowrap; color: inherit; }
+.brand-mark { display: grid; place-items: center; background: #233f31; color: white; width: 34px; height: 34px; border-radius: 7px; transition: background-color 0.2s ease; }
+html.dark .brand-mark { background: #1b4332; color: #34d399; }
 .brand-secondary { font-weight: 400; }
-.account-tools { display: flex; align-items: center; gap: 24px; }
+.account-tools { display: flex; align-items: center; gap: 16px; }
 .connection-indicator { display: flex; align-items: center; gap: 7px; color: #62665e; font-size: 12px; white-space: nowrap; }
+html.dark .connection-indicator { color: #9ca3af; }
 .connection-indicator i { width: 6px; height: 6px; border-radius: 100%; background: #a36a22; }
 .connection-indicator i.connected { background: #327355; }
+html.dark .connection-indicator i.connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+
 .demo-selector { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #62665e; }
+html.dark .demo-selector { color: #9ca3af; }
 .demo-selector select { max-width: 170px; border: 1px solid #e0e2da; border-radius: 5px; padding: 0 8px; background: #fff; color: #232522; }
-.product-navline { border-top: 1px solid #f0f1ed; }
+html.dark .demo-selector select { border-color: #353d37; background: #1c201e; color: #f3f4f3; }
+
+.product-navline { border-top: 1px solid #f0f1ed; transition: background-color 0.2s ease, border-color 0.2s ease; }
+html.dark .product-navline { border-top-color: #262d29; background: #161917; }
 .product-modes { display: flex; gap: 28px; }
-.product-modes button { display: flex; align-items: center; gap: 9px; min-height: 57px; border-bottom: 3px solid transparent; color: #6b7067; font-size: 13px; font-weight: 550; padding: 0 2px; }
+.product-modes button { display: flex; align-items: center; gap: 9px; min-height: 57px; border-bottom: 3px solid transparent; color: #6b7067; font-size: 13px; font-weight: 550; padding: 0 2px; transition: color 0.2s ease, border-color 0.2s ease; }
+html.dark .product-modes button { color: #9ca3af; }
 .product-modes button[aria-current] { color: #1c3427; border-bottom-color: #1c3427; }
+html.dark .product-modes button[aria-current] { color: #34d399; border-bottom-color: #10b981; }
+
 .workspace-name { font-size: 12px; color: #72776d; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.account-signout { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+html.dark .workspace-name { color: #9ca3af; }
+.account-signout { display: flex; align-items: center; gap: 8px; font-size: 13px; color: inherit; }
+html.dark .account-signout:hover { color: #f3f4f3; }
+
 .skip-link { position: fixed; top: -80px; left: 16px; background: #fff; padding: 12px; z-index: 3000; }
+html.dark .skip-link { background: #1c201e; color: #34d399; border: 1px solid #353d37; }
 .skip-link:focus { top: 8px; }
+
 .auth-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
 .auth-form { width: min(100%, 440px); display: grid; gap: 14px; }
 .auth-form h1 { font-size: 38px; font-weight: 600; margin: 8px 0; }
 .auth-form p { color: #62665e; }
+html.dark .auth-form p { color: #9ca3af; }
 .auth-form label { font-size: 13px; font-weight: 600; margin-top: 8px; }
 .auth-form input { border: 1px solid #cdd0c5; border-radius: 6px; padding: 10px 12px; background: white; }
+html.dark .auth-form input { border-color: #353d37; background: #181b19; color: #f3f4f3; }
+
 .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: 11px; font-weight: 650; color: #326249; }
-.primary-button { background: #243c2e; color: white; border-radius: 6px; padding: 12px 20px; font-weight: 600; }
+html.dark .eyebrow { color: #34d399; }
+.primary-button { background: #243c2e; color: white; border-radius: 6px; padding: 12px 20px; font-weight: 600; transition: background-color 0.2s ease, transform 0.15s ease; }
+html.dark .primary-button { background: #1b4332; color: #f3f4f3; }
+html.dark .primary-button:hover { background: #245842; }
+
 .form-error { border-left: 3px solid #b44036; background: #fff1ee; padding: 12px; color: #822b24 !important; }
+html.dark .form-error { background: rgba(180, 64, 54, 0.15); border-left-color: #ef4444; color: #fca5a5 !important; }
+
 .leaflet-container { z-index: 0; font-family: inherit; }
 .map-popup { color: #252a23; padding: 4px; }
 .map-popup strong { display: block; margin-bottom: 5px; }
+html.dark .map-popup { color: #f3f4f3; }
+html.dark .leaflet-popup-content-wrapper,
+html.dark .leaflet-popup-tip {
+  background: #1a1e1c;
+  color: #f3f4f3;
+  border: 1px solid #2e3631;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
 @media (max-width: 767px) {
   .product-topline { height: 66px; padding: 0 16px; gap: 10px; }
   .wordmark { font-size: 15px; gap: 7px; }
@@ -50,15 +106,307 @@ p { line-height: 1.6; }
   .connection-indicator { display: none; }
   .demo-selector { gap: 6px; }
   .demo-selector > span { font-size: 10px; max-width: 35px; }
-  .demo-selector select { max-width: 140px; font-size: 12px; }
+  .demo-selector select { max-width: 130px; font-size: 12px; }
   .product-navline { position: fixed; bottom: 0; left: 0; right: 0; padding: 0 8px env(safe-area-inset-bottom); border-top: 1px solid #dedfd8; background: white; }
+  html.dark .product-navline { border-top-color: #262d29; background: #161917; }
   .product-modes { width: 100%; gap: 0; justify-content: space-around; }
   .product-modes button { min-height: 65px; flex: 1; flex-direction: column; justify-content: center; gap: 5px; font-size: 10px; border-bottom: 0; border-top: 3px solid transparent; }
   .product-modes button[aria-current] { border-top-color: #294832; background: #f6f8f3; }
+  html.dark .product-modes button[aria-current] { border-top-color: #10b981; background: rgba(16, 185, 129, 0.1); }
   .workspace-name { display: none; }
   footer { padding-bottom: 90px !important; }
   main > .max-w-7xl { padding-top: 24px; }
   .auth-form h1 { font-size: 32px; }
   .fixed.inset-0 { overflow-y: auto; align-items: flex-start; padding-top: 80px; z-index: 1500; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+
+/* Response-based UX Microinteractions (Anime.js inspired) */
+.interactive-card {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  will-change: transform, box-shadow;
+}
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -8px rgba(28, 25, 23, 0.09), 0 2px 6px -2px rgba(28, 25, 23, 0.04);
+}
+.interactive-card:active {
+  transform: scale(0.992);
+}
+.interactive-btn {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.18s ease, box-shadow 0.18s ease;
+}
+.interactive-btn:hover {
+  transform: translateY(-1px);
+}
+.interactive-btn:active {
+  transform: scale(0.975);
+}
+@keyframes pulseRadar {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(1.2); }
+}
+.pulse-radar {
+  animation: pulseRadar 2.2s infinite ease-in-out;
+}
+@keyframes flashHighlight {
+  0% { background-color: rgba(5, 150, 105, 0.18); border-color: rgba(5, 150, 105, 0.4); }
+  100% { background-color: transparent; }
+}
+.flash-update {
+  animation: flashHighlight 1.4s ease-out;
+}
+@keyframes scrollReveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.reveal-on-scroll {
+  animation: scrollReveal 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes scanLaser {
+  0% { top: 2%; opacity: 0.9; }
+  100% { top: 94%; opacity: 0.9; }
+}
+.scan-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #10b981 30%, #34d399 50%, #10b981 70%, transparent 100%);
+  box-shadow: 0 0 12px 2px rgba(16, 185, 129, 0.65);
+  animation: scanLaser 1.6s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.capacity-gauge-fill {
+  transition: width 0.65s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer-fx {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Google Maps Address Descriptor Landmark Markers */
+.descriptor-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background-color: #244331;
+  color: #ffffff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+.descriptor-marker:hover {
+  transform: scale(1.18);
+  background-color: #1a6345;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+}
+.descriptor-marker.highlighted {
+  background-color: #d97706;
+  border-color: #ffffff;
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+}
+
+/* ========================================================
+   DARK MODE COMPREHENSIVE STYLING
+   ======================================================== */
+html.dark {
+  --color-canvas: #121413;
+  --color-surface: #181b19;
+  --color-surface-hover: #212623;
+  --color-border: #28302b;
+}
+
+html.dark .interactive-card {
+  background-color: #181b19;
+  border-color: #28302b;
+}
+html.dark .interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  border-color: #3b453e;
+}
+
+/* Surfaces & Wells */
+html.dark .bg-white {
+  background-color: #181b19 !important;
+}
+html.dark .bg-white\/90 {
+  background-color: rgba(24, 27, 25, 0.9) !important;
+}
+html.dark .bg-white\/80 {
+  background-color: rgba(24, 27, 25, 0.8) !important;
+}
+html.dark .bg-white\/70 {
+  background-color: rgba(24, 27, 25, 0.7) !important;
+}
+html.dark .bg-stone-50 {
+  background-color: #121413 !important;
+}
+html.dark .bg-stone-50\/80 {
+  background-color: rgba(18, 20, 19, 0.8) !important;
+}
+html.dark .bg-stone-100 {
+  background-color: #1f2320 !important;
+}
+html.dark .bg-stone-100\/60 {
+  background-color: rgba(31, 35, 32, 0.6) !important;
+}
+html.dark .bg-stone-100\/80 {
+  background-color: rgba(31, 35, 32, 0.8) !important;
+}
+html.dark .bg-stone-200 {
+  background-color: #29302c !important;
+}
+html.dark .bg-stone-900 {
+  background-color: #0d0f0e !important;
+}
+
+/* Text Scales */
+html.dark .text-stone-950, html.dark .text-stone-900 {
+  color: #f3f4f3 !important;
+}
+html.dark .text-stone-800 {
+  color: #e5e7eb !important;
+}
+html.dark .text-stone-700 {
+  color: #d1d5db !important;
+}
+html.dark .text-stone-600 {
+  color: #9ca3af !important;
+}
+html.dark .text-stone-500 {
+  color: #878f8a !important;
+}
+html.dark .text-stone-400 {
+  color: #68716b !important;
+}
+html.dark .text-stone-300 {
+  color: #9ca3af !important;
+}
+
+/* Borders & Dividers */
+html.dark .border-stone-100, html.dark .border-stone-200 {
+  border-color: #28302b !important;
+}
+html.dark .border-stone-200\/60 {
+  border-color: rgba(40, 48, 43, 0.6) !important;
+}
+html.dark .border-stone-200\/80 {
+  border-color: rgba(40, 48, 43, 0.8) !important;
+}
+html.dark .border-stone-300 {
+  border-color: #353f38 !important;
+}
+html.dark .border-stone-400 {
+  border-color: #455249 !important;
+}
+
+/* Interactive States */
+html.dark .hover\:bg-stone-50:hover {
+  background-color: #1c201e !important;
+}
+html.dark .hover\:bg-stone-100:hover {
+  background-color: #232825 !important;
+}
+html.dark .hover\:bg-stone-200:hover {
+  background-color: #2d342f !important;
+}
+
+/* Form Controls */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #1a1e1c !important;
+  color: #f3f4f3 !important;
+  border-color: #353f38 !important;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #68716b !important;
+}
+
+/* Accents & Status Badges */
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+html.dark .border-emerald-200, html.dark .border-emerald-300, html.dark .border-emerald-500\/30 {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+html.dark .text-emerald-700, html.dark .text-emerald-800, html.dark .text-emerald-900 {
+  color: #34d399 !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+html.dark .border-amber-200, html.dark .border-amber-300 {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+html.dark .text-amber-700, html.dark .text-amber-800, html.dark .text-amber-900 {
+  color: #fbbf24 !important;
+}
+
+html.dark .bg-rose-50, html.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+html.dark .border-rose-200, html.dark .border-red-200 {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+html.dark .text-rose-700, html.dark .text-red-700, html.dark .text-rose-800, html.dark .text-red-800 {
+  color: #f87171 !important;
+}
+
+html.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+}
+html.dark .border-blue-200 {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+html.dark .text-blue-700, html.dark .text-blue-800 {
+  color: #60a5fa !important;
+}
+
+/* Descriptor Markers in Dark Mode */
+html.dark .descriptor-marker {
+  background-color: #10b981;
+  color: #0b1f17;
+  border-color: #181b19;
+}
+html.dark .descriptor-marker:hover {
+  background-color: #34d399;
+}
+html.dark .descriptor-marker.highlighted {
+  background-color: #f59e0b;
+  color: #181b19;
+  border-color: #181b19;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4), 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
