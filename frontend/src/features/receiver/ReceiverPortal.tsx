@@ -1,8 +1,8 @@
 import { Dialog } from '../../components/Dialog';
 import { OwnLogistics } from '../../components/OwnLogistics';
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useSocketEvent } from '../../context/SocketContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useSocketEvent } from '../../hooks/useSocket';
 import { api } from '../../services/api';
 import { DonationAllocation, DeliveryMode, LayaDispatchRecommendation } from '../../types';
 import { CountdownTimer } from '../../components/CountdownTimer';
@@ -48,7 +48,8 @@ export const ReceiverPortal: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAllocations();
+    const timer = setTimeout(fetchAllocations, 0);
+    return () => clearTimeout(timer);
   }, [currentUser]);
 
   useSocketEvent('connect', () => fetchAllocations());

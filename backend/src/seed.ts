@@ -26,7 +26,7 @@ export async function seedDatabase() {
   // 1. Admin
   await prisma.user.create({
     data: {
-      email: 'admin@surplustoshelter.org',
+      email: 'admin@everyplate.org',
       name: 'Elena Rostova',
       role: Role.ADMIN
     }

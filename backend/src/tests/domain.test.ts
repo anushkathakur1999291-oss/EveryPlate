@@ -117,7 +117,7 @@ async function runDomainVerification() {
 
   const adminUser = await prisma.user.create({
     data: {
-      email: 'admin@surplustoshelter.org',
+      email: 'admin@everyplate.org',
       name: 'Operations Director',
       role: Role.ADMIN
     }

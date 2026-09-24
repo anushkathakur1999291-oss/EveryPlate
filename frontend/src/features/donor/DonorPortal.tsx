@@ -1,7 +1,7 @@
 import { Dialog } from '../../components/Dialog';
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useSocketEvent } from '../../context/SocketContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useSocketEvent } from '../../hooks/useSocket';
 import { api } from '../../services/api';
 import { Donation, LayaDonationParseResult } from '../../types';
 import { CountdownTimer } from '../../components/CountdownTimer';
@@ -47,7 +47,8 @@ export const DonorPortal: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDonations();
+    const timer = setTimeout(fetchDonations, 0);
+    return () => clearTimeout(timer);
   }, [currentUser]);
 
   useSocketEvent('connect', () => fetchDonations());

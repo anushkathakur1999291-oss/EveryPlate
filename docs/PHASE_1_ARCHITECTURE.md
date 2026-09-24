@@ -1,5 +1,5 @@
 # PHASE 1: SYSTEM ARCHITECTURE SPECIFICATION
-**Project**: Surplus-To-Shelter (Real-Time Food Rescue Routing)  
+**Project**: EveryPlate (Real-Time Food Rescue Routing)  
 **Version**: 1.0.0 (AmiHacks Hackathon)  
 **Author**: Lead Product Architect & Senior Full-Stack Engineer
 
@@ -7,7 +7,7 @@
 
 ## 1. High-Level Architecture Overview
 
-Surplus-To-Shelter is architected around an event-driven, modular domain-centric architecture. Business logic is strictly decoupled from the presentation layer and organized into cohesive services with atomic boundary guarantees.
+EveryPlate is architected around an event-driven, modular domain-centric architecture. Business logic is strictly decoupled from the presentation layer and organized into cohesive services with atomic boundary guarantees.
 
 ```
                           ┌────────────────────────────────────────────────────────┐

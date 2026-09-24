@@ -1,7 +1,7 @@
 # PROJECT HANDOFF
 
 ## 1. Project Identity
-- **Project Name**: Surplus-To-Shelter (Real-Time Food Rescue Routing)
+- **Project Name**: EveryPlate (Real-Time Food Rescue Routing)
 - **Description**: Real-time food rescue logistics platform connecting commercial food donors (restaurants, caterers, cafeterias) with receivers (shelters, food banks, community kitchens) before food becomes unusable, orchestrating matching, capacity reservation, geospatial routing, dual fulfillment (Platform Driver vs Receiver-Owned Logistics), verified two-stage OTP custody handoffs, and operational impact analytics.
 - **Current Objective**: Project 100% Completed and Verified. Ready for Hackathon Presentation & Live Demo.
 - **Current Development Phase**: Phase 12 Completed. Project Finalized.

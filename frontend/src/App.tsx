@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { SignIn } from './components/SignIn';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import { SocketProvider } from './context/SocketContext';
 import { Navbar } from './components/Navbar';
 const DonorPortal = lazy(() => import('./features/donor/DonorPortal').then(m => ({ default: m.DonorPortal })));
@@ -35,7 +36,7 @@ const AppContent: React.FC = () => {
         {currentUser?.role === 'ADMIN' && <AdminPortal />}
       </Suspense></main>
       <footer className="border-t border-stone-200 py-6 text-center text-xs text-stone-500">
-        Surplus to Shelter · Good food, delivered with care
+        EveryPlate · Good food, delivered with care
       </footer>
     </div>
   );

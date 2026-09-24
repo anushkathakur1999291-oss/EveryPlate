@@ -1,4 +1,4 @@
-# Operating Surplus to Shelter
+# Operating EveryPlate
 
 The current deployment target is **one Node process and one local SQLite database on persistent storage**. SQLite transactions, database triggers, and partial unique indexes protect integrity. This is not a validated multi-instance or high-throughput deployment. Socket rooms, HTTP rate limits, and maintenance scheduling are process-local. Sustained load testing remains a release gate. Controlled account provisioning is available through a CLI; public registration is not implemented.
 

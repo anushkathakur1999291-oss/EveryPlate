@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useAuth } from './AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -9,7 +10,7 @@ interface SocketContextType {
   joinDonation: (donationId: string) => void;
 }
 
-const SocketContext = createContext<SocketContextType | undefined>(undefined);
+export const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
@@ -18,7 +19,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!userId) { setSocket(null); setIsConnected(false); return; }
+    if (!userId) { setTimeout(() => { setSocket(null); setIsConnected(false); }, 0); return; }
     const s = io('/', {
       auth: { userId },
       withCredentials: true,
@@ -33,7 +34,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsConnected(false);
     });
 
-    setSocket(s);
+    setTimeout(() => setSocket(s), 0);
 
     return () => {
       s.disconnect();
@@ -59,25 +60,3 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
-export const useSocket = () => {
-  const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error('useSocket must be used within a SocketProvider');
-  }
-  return context;
-};
-
-/**
- * Reusable hook to subscribe to a Socket.io event with auto cleanup
- */
-export function useSocketEvent(eventName: string, handler: (data: any) => void) {
-  const { socket } = useSocket();
-  const callback = useRef(handler);
-  useEffect(() => { callback.current = handler; }, [handler]);
-  useEffect(() => {
-    if (!socket) return;
-    const listener = (data: any) => callback.current(data);
-    socket.on(eventName, listener);
-    return () => { socket.off(eventName, listener); };
-  }, [socket, eventName]);
-}

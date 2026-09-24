@@ -31,7 +31,7 @@ app.use(authMiddleware);
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'surplus-to-shelter-backend',
+    service: 'everyplate-backend',
     timestamp: new Date().toISOString(),
   });
 });
@@ -79,6 +79,6 @@ if (require.main === module) {
     server.close(() => { void prisma.$disconnect().then(() => process.exit(0)); });
   });
   server.listen(PORT, () => {
-    console.log(`Surplus-To-Shelter API Server listening on port ${PORT}`);
+    console.log(`EveryPlate API Server listening on port ${PORT}`);
   });
 }

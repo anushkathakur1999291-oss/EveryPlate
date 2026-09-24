@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSocketEvent } from '../context/SocketContext';
+import { useSocketEvent } from '../hooks/useSocket';
 import { CheckCircle2, Award, X } from 'lucide-react';
 
 interface Toast {

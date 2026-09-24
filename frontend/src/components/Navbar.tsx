@@ -1,5 +1,5 @@
-import { useAuth } from '../context/AuthContext';
-import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../hooks/useAuth';
+import { useSocket } from '../hooks/useSocket';
 import { HeartHandshake, PackageCheck, Truck, ChartNoAxesCombined, ArrowUpRight, LogOut } from 'lucide-react';
 import type { Role } from '../types';
 const modes = [
@@ -13,7 +13,7 @@ export function Navbar() {
   const { isConnected } = useSocket();
   const visibleModes = demoMode ? modes : modes.filter(m => m.role === currentUser?.role);
   return <><a className="skip-link" href="#main-content">Skip to workspace</a><header className="product-header">
-    <div className="product-topline"><a href="#main-content" className="wordmark"><span className="brand-mark"><ArrowUpRight size={22}/></span><span>Surplus<span className="brand-secondary"> to Shelter</span></span></a>
+    <div className="product-topline"><a href="#main-content" className="wordmark"><span className="brand-mark"><ArrowUpRight size={22}/></span><span>Every<span className="brand-secondary">Plate</span></span></a>
       <div className="account-tools"><span className="connection-indicator"><i className={isConnected ? 'connected' : ''}/>{isConnected ? 'Live updates' : 'Reconnecting'}</span>
         {demoMode ? <label className="demo-selector"><span>Demo account</span><select aria-label="Choose demo account" value={currentUser?.id || ''} onChange={e => { const user=users.find(u=>u.id===e.target.value);if(user)setCurrentUser(user); }}>{users.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></label> : <button className="account-signout" onClick={() => void logout()} aria-label="Sign out"><LogOut size={17}/><span>Sign out</span></button>}
       </div></div>

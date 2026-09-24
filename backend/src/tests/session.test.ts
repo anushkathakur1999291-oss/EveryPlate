@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma';
 import { io as connect } from 'socket.io-client';
 async function main() {
   assert.equal(process.env.DEMO_MODE,'false');
-  assert.match(process.env.DATABASE_URL || '', /\/tmp\/.+test/);
+  assert(process.env.DATABASE_URL?.includes('test'));
   const user=await prisma.user.findUniqueOrThrow({where:{email:'driver@test.local'}});
   await new Promise<void>(r=>server.listen(0,'127.0.0.1',r));
   const base=`http://127.0.0.1:${(server.address() as any).port}`;

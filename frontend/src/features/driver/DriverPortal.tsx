@@ -1,7 +1,7 @@
 import { Dialog } from '../../components/Dialog';
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useSocketEvent, useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useSocketEvent, useSocket } from '../../hooks/useSocket';
 import { api } from '../../services/api';
 import { RescueMap, MapPoint, MapRoute } from '../../components/RescueMap';
 import { Truck, MapPin, Navigation, Clock, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
@@ -46,7 +46,9 @@ export const DriverPortal: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchJobs();
+    const timer = setTimeout(fetchJobs, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   useSocketEvent('connect', () => fetchJobs());

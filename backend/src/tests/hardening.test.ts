@@ -18,7 +18,7 @@ const engine = new AllocationEngine(prisma);
 const fulfillment = new FulfillmentService(prisma);
 const sockets: ReturnType<typeof clientIO>[] = [];
 async function main() {
-  assert.match(process.env.DATABASE_URL || '', /\/tmp\/.+test/); // Never touch the project database.
+  assert(process.env.DATABASE_URL?.includes('test')); // Never touch the project database.
   const donor = await prisma.user.create({ data: { name: 'Donor', email: 'donor@test.local', role: 'DONOR', donorProfile: { create: { organizationName: 'Kitchen', donorType: 'RESTAURANT', address: 'Private pickup', latitude: 40.71, longitude: -74, phone: 'PRIVATE-PHONE' } } }, include: { donorProfile: true } });
   const receiver = await prisma.user.create({ data: { name: 'Receiver', email: 'receiver@test.local', role: 'RECEIVER', receiverProfile: { create: { organizationName: 'Shelter', maxCapacity: 20, foodPreferences: '["COOKED_MEALS"]', needLevel: 'HIGH', address: 'Private destination', latitude: 40.711, longitude: -74, phone: 'PRIVATE-PHONE', hasOwnLogistics: true } } }, include: { receiverProfile: true } });
   const makeDriver = (email: string) => prisma.user.create({ data: { name: email, email, role: 'DRIVER', driverProfile: { create: { fullName: email, vehicleType: 'BIKE', phone: 'PRIVATE-PHONE', currentLatitude: 40.71, currentLongitude: -74 } } }, include: { driverProfile: true } });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSocketEvent } from '../../context/SocketContext';
+import { useSocketEvent } from '../../hooks/useSocket';
 import { api } from '../../services/api';
 import { ImpactSummary } from '../../types';
 import { RescueMap, MapPoint, MapRoute } from '../../components/RescueMap';
@@ -49,7 +49,8 @@ export const AdminPortal: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAdminData();
+    const timer = setTimeout(fetchAdminData, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   useSocketEvent('connect', () => fetchAdminData());

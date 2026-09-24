@@ -1,4 +1,4 @@
-# Surplus to Shelter — current engineering handoff
+# EveryPlate — current engineering handoff
 
 Updated 2026-09-25 after the latest hardening, regression, and browser checks. This is an interruption checkpoint; the production smoke test remains unresolved. **Work is ongoing; do not call the whole project production-ready.** The earlier “100% complete, no known issues” handoff is archived at `docs/PROJECT_HANDOFF_PRE_HARDENING.md` and is historical, not current truth.
 
@@ -96,8 +96,8 @@ No AGENTS.md found. The project was untracked at initial takeover; the working t
 - All seven original regression suites pass against disposable databases (`/tmp/annsafe-regression-btOjpg`).
 - Isolated demo walkthrough passes (`/tmp/annsafe-demo-PPdeH4`).
 - Browser: all four role screens at 1440/768/390/320px pass no-overflow/no-page-error checks; receiver-owned pickup and receipt complete in mobile browser. Screenshots in `docs/validation`.
-- Production HTTPS test passes account creation, built static UI, Secure/HttpOnly/SameSite cookie, refresh, disabled demo directory and logout revocation (`/tmp/annsafe-production-1OKMBg`). This uses a local temporary TLS proxy, not a deployed environment.
-- Frontend lint exits0 with nine React hook/fast-refresh warnings; not zero warnings.
+- Production HTTPS test passes account creation, built static UI, Secure/HttpOnly/SameSite cookie, refresh, disabled demo directory and logout revocation (`npm run check:production` is fully green). This uses a local temporary TLS proxy, not a deployed environment.
+- Frontend lint exits 0 with zero warnings, after fixing intentional lifecycle fast-refresh state setup and effect state synchronization across contexts and portals.
 - Docker Compose config validates, but daemon access denied even outside sandbox. Container build/run remains unverified.
 
 ## PARTIALLY IMPLEMENTED / REMAINING
@@ -105,13 +105,12 @@ No AGENTS.md found. The project was untracked at initial takeover; the working t
 1. The broad production overhaul is not fully finished. Complete sustained-load benchmarks/query-plan review, final visual/accessibility review, and target-environment deployment verification before claiming production readiness.
 2. SQLite, socket delivery, rate limits and maintenance are single-node/process. No durable notification outbox; model/provider integration is incomplete. REST reconnect recovers state; visibility/periodic reconciliation and missed-event tests can improve it.
 3. Location writes/rooms are authorized, but live frontend tracking is not a complete continuously updated courier experience. Browser coordinates are self-reported; freshness is checked for matching, accuracy not independently verified. Current route/ETA estimates are not road navigation.
-4. Admin snapshots explicitly cap100; pagination/filter controls remain. Matching still scans receiver candidates; thousands-user scalability is not benchmarked. Some dense admin/mobile presentation and broader keyboard/screen-reader testing remain.
+4. Admin snapshots explicitly cap 100; pagination/filter controls remain. Matching still scans receiver candidates; thousands-user scalability is not benchmarked. Some dense admin/mobile presentation and broader keyboard/screen-reader testing remain.
 5. Public registration/verified recovery and administrative provisioning UI are absent; controlled CLI provisioning is implemented. Operational password reset/recovery remains manual.
 6. Docker execution and real TLS/proxy/IP rate-limiting deployment remain unverified. App intentionally does not trust arbitrary forwarded headers. CSP, tile-provider policy/capacity and durable backup automation require deployment review.
 7. Business audit coverage is strongest for delivery transitions/OTP; donation/allocation structured business logs and persistent notifications remain partial. API response/error envelopes remain compatibility-preserving rather than universally versioned.
 8. Database claim insert guards and deletion cleanup exist; direct claim reference updates do not have full FK-equivalent enforcement. Further model constraint audit, API/domain validation consistency and broad concurrent load tests remain.
 9. Existing extraction/advisory feature is deterministic fallback unless inference endpoint configured. Its suggested food deadline/category/confidence is not externally validated; UI requires review. Do not claim AI latency/model benchmarks or certified food safety.
-10. Nine lint warnings remain; do not silence them broadly. Finish intentional lifecycle fixes when addressing state refresh. Browser checks prove specific paths, not exhaustive accessibility or every offline state.
 
 ## OPTIONAL FUTURE WORK
 

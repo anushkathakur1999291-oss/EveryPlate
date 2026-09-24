@@ -1,5 +1,5 @@
 {
-  "name": "surplus-to-shelter-backend",
+  "name": "everyplate-backend",
   "version": "1.0.0",
   "description": "Real-Time Food Rescue Routing Backend",
   "main": "dist/app.js",

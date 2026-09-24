@@ -84,7 +84,7 @@ class DemoRunner {
   }
 
   private async setupSocketListener() {
-    const admin = await prisma.user.findUniqueOrThrow({ where: { email: 'admin@surplustoshelter.org' } });
+    const admin = await prisma.user.findUniqueOrThrow({ where: { email: 'admin@everyplate.org' } });
     return new Promise<void>((resolve) => {
       this.socket = ClientIO(this.baseUrl, { transports: ['websocket'], auth: { userId: admin.id } });
       this.socket.on('connect', () => {
@@ -122,7 +122,7 @@ class DemoRunner {
     method: 'GET' | 'POST',
     path: string,
     body?: any,
-    userEmail: string = 'admin@surplustoshelter.org'
+    userEmail: string = 'admin@everyplate.org'
   ): Promise<ApiResponse<T>> {
     return new Promise((resolve, reject) => {
       const url = new URL(path, this.baseUrl);
@@ -566,7 +566,7 @@ class DemoRunner {
 `)));
 
     console.log(bold('ISOLATED DEMO IDENTITIES (not production credentials):'));
-    console.log('  • Admin Portal    : ' + cyan('admin@surplustoshelter.org') + ' (Elena Rostova)');
+    console.log('  • Admin Portal    : ' + cyan('admin@everyplate.org') + ' (Elena Rostova)');
     console.log('  • Donor Portal    : ' + cyan('marco@greenbistro.com') + ' (Chef Marco, The Green Bistro)');
     console.log('  • Receiver Portal : ' + cyan('director@hopeshelter.org') + ' (Sister Mary, Hope Shelter)');
     console.log('  • Driver Portal   : ' + cyan('alex.rivera@rescue.org') + ' (Alex Rivera, Platform Courier)');

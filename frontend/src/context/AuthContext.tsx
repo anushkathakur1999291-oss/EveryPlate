@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import { User, Role } from '../types';
 import { api, setApiUserId } from '../services/api';
 interface AuthContextType {
@@ -6,7 +7,7 @@ interface AuthContextType {
   switchRole: (role: Role) => void; isLoading: boolean; refreshUsers: () => Promise<void>;
   demoMode: boolean; error: string; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void>;
 }
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUserState] = useState<User | null>(null);
@@ -57,4 +58,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchRole = (role: Role) => { const user = users.find(u => u.role === role); if (user) void setCurrentUser(user); };
   return <AuthContext.Provider value={{ users, currentUser, setCurrentUser, switchRole, isLoading, refreshUsers, demoMode, error, login, logout }}>{children}</AuthContext.Provider>;
 };
-export const useAuth = () => { const value = useContext(AuthContext); if (!value) throw new Error('AuthProvider required'); return value; };

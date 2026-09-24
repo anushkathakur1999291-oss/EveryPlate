@@ -6,16 +6,18 @@ import { randomBytes } from 'node:crypto';
 import https from 'node:https';
 import http from 'node:http';
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
 const root=resolve(import.meta.dirname,'../..');
-const dir=mkdtempSync('/tmp/annsafe-production-');
+const dir=mkdtempSync(resolve(tmpdir(), 'annsafe-production-'));
 const origin='https://127.0.0.1:3443';
 const env={...process.env,NODE_ENV:'production',DEMO_MODE:'false',DATABASE_URL:`file:${dir}/production.db`,OTP_ENCRYPTION_KEY:randomBytes(32).toString('hex'),CORS_ORIGINS:origin,PORT:'4401',FRONTEND_DIST_DIR:`${root}/frontend/dist`};
 const run=(args,input)=>{const r=spawnSync(process.execPath,args,{cwd:`${root}/backend`,env,input,encoding:'utf8'});assert.equal(r.status,0,r.stderr||r.stdout);};
 run(['node_modules/prisma/build/index.js','migrate','deploy']);
 const password=randomBytes(24).toString('hex');
 run(['dist/scripts/create-account.js'],JSON.stringify({role:'ADMIN',name:'Production check',email:'admin@test.invalid',password}));
-const cert=spawnSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',`${dir}/key.pem`,'-out',`${dir}/cert.pem`,'-days','1','-subj','/CN=localhost'],{encoding:'utf8'});
-assert.equal(cert.status,0,'Temporary TLS certificate generation failed');
+const opensslPath = process.platform === 'win32' ? 'C:/Program Files/Git/usr/bin/openssl.exe' : 'openssl';
+const cert=spawnSync(opensslPath,['req','-x509','-newkey','rsa:2048','-nodes','-keyout',`${dir}/key.pem`,'-out',`${dir}/cert.pem`,'-days','1','-subj','/CN=localhost'],{encoding:'utf8'});
+assert.equal(cert.status,0,'Temporary TLS certificate generation failed: ' + cert.stderr);
 const backend=spawn(process.execPath,['dist/app.js'],{cwd:`${root}/backend`,env,stdio:['ignore','pipe','pipe']});
 let serverLog='';backend.stdout.on('data',b=>serverLog+=b);backend.stderr.on('data',b=>serverLog+=b);
 const proxy=https.createServer({key:readFileSync(`${dir}/key.pem`),cert:readFileSync(`${dir}/cert.pem`)},(req,res)=>{
@@ -26,7 +28,7 @@ let browser;
 try {
  await new Promise(resolve=>proxy.listen(3443,'127.0.0.1',resolve));
  let ready=false;
- for(let i=0;i<50;i++){try{if((await fetch('http://127.0.0.1:4401/ready')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}
+ for(let i=0;i<50;i++){try{const res=await fetch('http://127.0.0.1:4401/ready');if(res.ok){ready=true;break;}else{serverLog+=' Ready returned '+res.status+' '+(await res.text())+' ';}}catch(e){serverLog+=' '+e.message;}await new Promise(r=>setTimeout(r,100));}
  assert(ready,'Production backend did not become ready: '+serverLog);
  browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||(existsSync('/usr/bin/brave-origin')?'/usr/bin/brave-origin':undefined),args:['--no-sandbox']});
  const context=await browser.newContext({ignoreHTTPSErrors:true});

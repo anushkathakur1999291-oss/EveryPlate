@@ -35,7 +35,15 @@ export class AuthController {
     if (!demoMode) return res.status(404).json({ error: 'Not found' });
     try {
       const users = await prisma.user.findMany({
-        select: { id: true, name: true, role: true },
+        select: { 
+          id: true, 
+          email: true, 
+          name: true, 
+          role: true, 
+          donorProfile: true, 
+          receiverProfile: true, 
+          driverProfile: true 
+        },
         orderBy: { role: 'asc' },
       });
       res.json(users);
