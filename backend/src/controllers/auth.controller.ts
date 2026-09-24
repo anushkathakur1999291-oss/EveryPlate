@@ -1,5 +1,5 @@
 import { SocketService } from '../services/socket/socket.service';
-import { createSession, verifyPassword, sessionCookie, cookieToken, tokenHash } from '../services/auth/auth.service';
+import { createSession, verifyPassword, hashPassword, sessionCookie, cookieToken, tokenHash } from '../services/auth/auth.service';
 import { z } from 'zod';
 import { demoMode } from '../config/runtime';
 import { respondError } from '../lib/errors';
@@ -15,6 +15,7 @@ export class AuthController {
       if (!parsed.success) return res.status(400).json({ error: 'Enter a valid email and password' });
       const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
       if (!await verifyPassword(parsed.data.password, user?.passwordHash) || !user) return res.status(401).json({ error: 'Email or password is incorrect' });
+      if (!user.passwordHash?.startsWith('scrypt-v1:')) await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data.password) } });
       const { token, expiresAt } = await createSession(user.id);
       res.cookie(sessionCookie, token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/', expires: expiresAt });
       res.json({ authenticated: true });

@@ -1,3 +1,4 @@
+import { SocketService } from '../socket/socket.service';
 import { PrismaClient } from '@prisma/client';
 import { GeoService, Coordinates } from '../routing/geo.service';
 import { FulfillmentService } from './fulfillment.service';
@@ -25,6 +26,14 @@ export class DispatchService {
     const donorCoords = { latitude: donation.pickupLatitude, longitude: donation.pickupLongitude };
     return { delivery, totalEtaMinutes: GeoService.estimateTransitMinutes(coords, donorCoords) + GeoService.estimateTransitMinutes(donorCoords, delivery.allocation.receiver) };
   }
+  async recoverClosedWindows() {
+    const windows = await this.prisma.driverClaim.groupBy({ by: ['deliveryId','closesAt'], where: { status: 'PENDING', closesAt: { lte: new Date() } }, orderBy: { closesAt: 'asc' }, take: 100 });
+    for (const window of windows) {
+      try { await this.resolve(window.deliveryId, window.closesAt); }
+      catch (err) { console.error(JSON.stringify({ level: 'error', event: 'DISPATCH_RECOVERY_FAILED', deliveryId: window.deliveryId, type: err instanceof Error ? err.name : 'Unknown' })); }
+    }
+    await this.prisma.driverClaim.deleteMany({ where: { status: { not: 'PENDING' }, createdAt: { lt: new Date(Date.now()-7*86400000) } } });
+  }
   private async resolve(deliveryId: string, closesAt: Date) {
     const delivery = await this.prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId }, include: { allocation: { include: { donation: true, receiver: true } } } });
     const donation = delivery.allocation.donation;
@@ -37,7 +46,8 @@ export class DispatchService {
       const earliest = Math.max(Date.now() + GeoService.estimateTransitMinutes(candidate, donor) * 60000, donation.availableAt.getTime());
       if (!driver?.isAvailable || earliest + (GeoService.estimateTransitMinutes(donor, delivery.allocation.receiver) + defaultScoringConfig.pickupBufferMinutes + defaultScoringConfig.deliveryBufferMinutes) * 60000 > donation.safeDeadline.getTime()) continue;
       try {
-        await fulfillment.acceptPlatformDeliveryJob(deliveryId, candidate.driverId, candidate);
+        await fulfillment.acceptPlatformDeliveryJob(deliveryId, candidate.driverId, candidate, candidate.id);
+        SocketService.emitDriverAssigned({ id: deliveryId }, candidate.driverId);
         break;
       } catch (err) {
         // Another resolver may already have assigned the same ranked winner.

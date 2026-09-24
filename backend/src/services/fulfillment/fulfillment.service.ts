@@ -126,7 +126,8 @@ export class FulfillmentService {
   async acceptPlatformDeliveryJob(
     deliveryId: string,
     driverId: string,
-    driverCoords: Coordinates
+    driverCoords: Coordinates,
+    claimId?: string
   ): Promise<{ delivery: Delivery; totalEtaMinutes: number }> {
     return await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`UPDATE Delivery SET id = id WHERE id = ${deliveryId}`;
@@ -163,6 +164,10 @@ export class FulfillmentService {
         throw new DomainError(`Delivery ${deliveryId} has already been claimed by another driver`);
       }
 
+      if (claimId) {
+        const claim = await tx.driverClaim.findUnique({ where: { id: claimId } });
+        if (!claim || claim.status !== 'PENDING' || claim.deliveryId !== deliveryId || claim.driverId !== driverId || claim.closesAt > new Date()) throw new DomainError('This claim window is no longer active');
+      }
       const donation = delivery.allocation.donation;
       const receiver = delivery.allocation.receiver;
 
@@ -176,7 +181,7 @@ export class FulfillmentService {
 
       const earliest = Math.max(Date.now() + etaToDonor * 60000, donation.availableAt.getTime());
       if (earliest + (etaDonorToReceiver + defaultScoringConfig.pickupBufferMinutes + defaultScoringConfig.deliveryBufferMinutes) * 60000 > donation.safeDeadline.getTime()) throw new DomainError('Insufficient time to complete this delivery safely');
-      const driver = await tx.driverProfile.updateMany({ where: { id: driverId, isAvailable: true, assignments: { none: { status: DriverAssignmentStatus.ACCEPTED } } }, data: { isAvailable: false } });
+      const driver = await tx.driverProfile.updateMany({ where: { id: driverId, isAvailable: true, assignments: { none: { status: DriverAssignmentStatus.ACCEPTED } } }, data: { isAvailable: false, currentLatitude: driverCoords.latitude, currentLongitude: driverCoords.longitude, locationUpdatedAt: new Date() } });
       if (driver.count !== 1) throw new DomainError('Driver is unavailable or already assigned');
       // 2. Create DriverAssignment
       await tx.driverAssignment.create({
@@ -216,6 +221,7 @@ export class FulfillmentService {
         },
       });
 
+      if (claimId) await tx.driverClaim.updateMany({ where: { deliveryId, status: 'PENDING' }, data: { status: 'RESOLVED' } });
       return { delivery: updatedDelivery, totalEtaMinutes };
     });
   }
@@ -305,6 +311,7 @@ export class FulfillmentService {
       if (!delivery) throw new DomainError(`Delivery ${deliveryId} not found`);
 
       if (!delivery.driverAssignments.length || delivery.pickupVerifiedAt || !this.prePickupStates.includes(delivery.status)) throw new DomainError('Only the assigned driver can cancel before pickup');
+      await tx.driverClaim.updateMany({ where: { deliveryId, status: 'PENDING' }, data: { status: 'CANCELLED' } });
       // Update active assignment
       await tx.driverAssignment.updateMany({
         where: { deliveryId, driverId, status: DriverAssignmentStatus.ACCEPTED },
@@ -459,6 +466,7 @@ export class FulfillmentService {
         );
       }
 
+      await tx.driverClaim.updateMany({ where: { deliveryId, status: 'PENDING' }, data: { status: 'CANCELLED' } });
       const activeAssignments = await tx.driverAssignment.findMany({ where: { deliveryId, status: DriverAssignmentStatus.ACCEPTED } });
       await tx.driverAssignment.updateMany({ where: { deliveryId, status: DriverAssignmentStatus.ACCEPTED }, data: { status: DriverAssignmentStatus.CANCELLED, cancelledAt: new Date(), cancellationReason: 'Fulfillment mode changed' } });
       await tx.driverProfile.updateMany({ where: { id: { in: activeAssignments.map(a => a.driverId) } }, data: { isAvailable: true } });

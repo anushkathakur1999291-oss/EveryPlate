@@ -38,7 +38,7 @@ export class AllocationEngine {
       result.matchedReceivers.push({ receiverId: receiver.id, organizationName: receiver.organizationName, allocatedQuantity: quantity, compositeScore: scored.scores.composite, isPartial: quantity < remaining });
       remaining -= quantity;
     }
-    await tx.donation.update({ where: { id: donationId }, data: { status: remaining === 0 ? 'FULLY_MATCHED' : remaining < donation.quantity ? 'PARTIALLY_MATCHED' : 'MATCHING' } });
+    await tx.donation.update({ where: { id: donationId }, data: { nextMatchAttemptAt: new Date(Date.now() + 60000), status: remaining === 0 ? 'FULLY_MATCHED' : remaining < donation.quantity ? 'PARTIALLY_MATCHED' : 'MATCHING' } });
     result.unallocatedQuantity = remaining;
     return result;
   }

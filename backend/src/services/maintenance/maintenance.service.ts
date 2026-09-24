@@ -1,3 +1,4 @@
+import { DispatchService } from '../fulfillment/dispatch.service';
 import { PrismaClient } from '@prisma/client';
 import { AllocationEngine } from '../allocation/allocation.service';
 import { SocketService } from '../socket/socket.service';
@@ -8,6 +9,7 @@ export class MaintenanceService {
       await tx.$executeRaw`UPDATE Donation SET id = id WHERE id = ${id}`;
       const donation = await tx.donation.findUnique({ where: { id }, include: { allocations: { include: { delivery: true, capacityReservation: true } } } });
       if (!donation || donation.safeDeadline > now || ['FULFILLED','EXPIRED','CANCELLED'].includes(donation.status)) return false;
+      await tx.driverClaim.updateMany({ where: { deliveryId: { in: donation.allocations.flatMap(a => a.delivery ? [a.delivery.id] : []) }, status: 'PENDING' }, data: { status: 'CANCELLED' } });
       for (const allocation of donation.allocations) {
         if (allocation.status === 'COMPLETED') continue;
         const released = await tx.capacityReservation.updateMany({ where: { allocationId: allocation.id, status: 'ACTIVE' }, data: { status: 'RELEASED' } });
@@ -26,16 +28,28 @@ export class MaintenanceService {
       return true;
     });
   }
+  private logFailure(event: string, donationId: string, err: unknown) {
+    console.error(JSON.stringify({ level: 'error', event, donationId, type: err instanceof Error ? err.name : 'Unknown' }));
+  }
   async runOnce() {
     const now = new Date();
     const expired = await this.prisma.donation.findMany({ where: { safeDeadline: { lte: now }, status: { notIn: ['FULFILLED','EXPIRED','CANCELLED'] } }, take: 100, orderBy: { safeDeadline: 'asc' } });
-    for (const d of expired) if (await this.expireDonation(d.id, now)) SocketService.emitDonationCreated(d);
+    for (const d of expired) {
+      try { if (await this.expireDonation(d.id, now)) SocketService.emitDonationCreated(d); }
+      catch(err) { this.logFailure('EXPIRY_FAILED',d.id,err); }
+    }
+    await new DispatchService(this.prisma).recoverClosedWindows();
     // Recover interrupted matching and retry partial donations as capacity becomes available.
-    const pending = await this.prisma.donation.findMany({ where: { safeDeadline: { gt: now }, status: { in: ['CREATED','MATCHING','PARTIALLY_MATCHED'] } }, take: 20, orderBy: { safeDeadline: 'asc' } });
+    const pending = await this.prisma.donation.findMany({ where: { safeDeadline: { gt: now }, OR: [{ nextMatchAttemptAt: null }, { nextMatchAttemptAt: { lte: now } }], status: { in: ['CREATED','MATCHING','PARTIALLY_MATCHED'] } }, take: 20, orderBy: { safeDeadline: 'asc' } });
     const engine = new AllocationEngine(this.prisma);
     for (const d of pending) {
-      const result = await engine.proposeAllocationsForDonation(d.id);
-      if (result.allocations.length) SocketService.emitDonationCreated(d);
+      try {
+        const result = await engine.proposeAllocationsForDonation(d.id);
+        if (result.allocations.length) SocketService.emitDonationCreated(d);
+      } catch(err) {
+        this.logFailure('MATCHING_RETRY_FAILED',d.id,err);
+        await this.prisma.donation.updateMany({ where: { id: d.id, status: { in: ['CREATED','MATCHING','PARTIALLY_MATCHED'] } }, data: { nextMatchAttemptAt: new Date(now.getTime()+60000) } }).catch(e => this.logFailure('MATCHING_RESCHEDULE_FAILED',d.id,e));
+      }
     }
     await this.prisma.session.deleteMany({ where: { expiresAt: { lte: now } } });
   }

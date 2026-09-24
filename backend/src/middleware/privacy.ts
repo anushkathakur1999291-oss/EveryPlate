@@ -8,7 +8,7 @@ export function stripSecrets(value: any): any {
   if (Array.isArray(value)) return value.map(stripSecrets);
   const result: any = {};
   for (const [key, child] of Object.entries(value)) {
-    if (['pickupOtp', 'deliveryOtp', 'submittedOtp', 'phone', 'contactMechanism', 'passwordHash', 'tokenHash', 'otpVerifications', 'events', 'metadata', 'email'].includes(key)) continue;
+    if (['pickupOtp', 'deliveryOtp', 'pickupOtpVersion', 'deliveryOtpVersion', 'pickupOtpReissuedAt', 'deliveryOtpReissuedAt', 'submittedOtp', 'phone', 'contactMechanism', 'passwordHash', 'tokenHash', 'otpVerifications', 'events', 'metadata', 'email', 'nextMatchAttemptAt'].includes(key)) continue;
     result[key] = stripSecrets(child);
   }
   return result;

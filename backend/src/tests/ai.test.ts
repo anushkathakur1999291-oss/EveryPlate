@@ -1,3 +1,6 @@
+import { prisma } from '../lib/prisma';
+import { seedDatabase } from '../seed';
+import { LayaService } from '../services/ai/laya.service';
 import http from 'http';
 import { app } from '../app';
 
@@ -6,6 +9,8 @@ const TEST_PORT = 4004;
 async function runAITests() {
   console.log('--- STARTING PHASE 11 LAYA SYSTEM-1 AI DECISION ENGINE TESTS ---');
 
+  await seedDatabase();
+  const donor = await prisma.user.findUniqueOrThrow({ where: { email: 'marco@greenbistro.com' } });
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(TEST_PORT, resolve));
   console.log(`✓ Test API server listening on port ${TEST_PORT}`);
@@ -19,6 +24,7 @@ async function runAITests() {
           method,
           headers: {
             'Content-Type': 'application/json',
+            'x-user-id': donor.id,
             ...(dataString ? { 'Content-Length': Buffer.byteLength(dataString) } : {}),
           },
         },
@@ -118,7 +124,7 @@ async function runAITests() {
 
     // --- TEST 7: System-1 Fulfillment Mode Recommendation (Critical Risk) ---
     console.log('\n--- TEST 7: SYSTEM-1 DISPATCH ADVISOR (CRITICAL TIMEOUT DEFICIT) ---');
-    const dispatchRes1 = await request('POST', '/api/ai/recommend-mode', {
+    const dispatchRes1 = await LayaService.recommendFulfillmentMode({
       timeRemainingMins: 35,
       availablePlatformDrivers: 0,
       distanceKm: 1.8,
@@ -127,22 +133,22 @@ async function runAITests() {
     });
 
     console.log('Laya Dispatch Advisor Output (Deficit scenario):');
-    console.log(`  - Recommended Mode: ${dispatchRes1.body.recommendedMode}`);
-    console.log(`  - Risk Level: ${dispatchRes1.body.riskLevel}`);
-    console.log(`  - Confidence: ${dispatchRes1.body.confidence}`);
-    console.log(`  - Reasoning: ${dispatchRes1.body.reasoning}`);
+    console.log(`  - Recommended Mode: ${dispatchRes1.recommendedMode}`);
+    console.log(`  - Risk Level: ${dispatchRes1.riskLevel}`);
+    console.log(`  - Confidence: ${dispatchRes1.confidence}`);
+    console.log(`  - Reasoning: ${dispatchRes1.reasoning}`);
 
-    if (dispatchRes1.body.recommendedMode !== 'RECEIVER_LOGISTICS') {
-      throw new Error(`Expected RECEIVER_LOGISTICS, got ${dispatchRes1.body.recommendedMode}`);
+    if (dispatchRes1.recommendedMode !== 'RECEIVER_LOGISTICS') {
+      throw new Error(`Expected RECEIVER_LOGISTICS, got ${dispatchRes1.recommendedMode}`);
     }
-    if (dispatchRes1.body.riskLevel !== 'CRITICAL') {
-      throw new Error(`Expected CRITICAL risk level, got ${dispatchRes1.body.riskLevel}`);
+    if (dispatchRes1.riskLevel !== 'CRITICAL') {
+      throw new Error(`Expected CRITICAL risk level, got ${dispatchRes1.riskLevel}`);
     }
     console.log('✓ Correctly recommended RECEIVER_LOGISTICS under courier deficit');
 
     // --- TEST 8: System-1 Fulfillment Mode Recommendation (Ample Buffer) ---
     console.log('\n--- TEST 8: SYSTEM-1 DISPATCH ADVISOR (AMPLE BUFFER & COURIERS) ---');
-    const dispatchRes2 = await request('POST', '/api/ai/recommend-mode', {
+    const dispatchRes2 = await LayaService.recommendFulfillmentMode({
       timeRemainingMins: 120,
       availablePlatformDrivers: 3,
       distanceKm: 4.2,
@@ -151,19 +157,20 @@ async function runAITests() {
     });
 
     console.log('Laya Dispatch Advisor Output (Ample buffer scenario):');
-    console.log(`  - Recommended Mode: ${dispatchRes2.body.recommendedMode}`);
-    console.log(`  - Risk Level: ${dispatchRes2.body.riskLevel}`);
-    console.log(`  - Confidence: ${dispatchRes2.body.confidence}`);
-    console.log(`  - Reasoning: ${dispatchRes2.body.reasoning}`);
+    console.log(`  - Recommended Mode: ${dispatchRes2.recommendedMode}`);
+    console.log(`  - Risk Level: ${dispatchRes2.riskLevel}`);
+    console.log(`  - Confidence: ${dispatchRes2.confidence}`);
+    console.log(`  - Reasoning: ${dispatchRes2.reasoning}`);
 
-    if (dispatchRes2.body.recommendedMode !== 'PLATFORM_DRIVER') {
-      throw new Error(`Expected PLATFORM_DRIVER, got ${dispatchRes2.body.recommendedMode}`);
+    if (dispatchRes2.recommendedMode !== 'PLATFORM_DRIVER') {
+      throw new Error(`Expected PLATFORM_DRIVER, got ${dispatchRes2.recommendedMode}`);
     }
     console.log('✓ Correctly recommended PLATFORM_DRIVER when network has capacity');
 
     console.log('\n--- ALL PHASE 11 LAYA SYSTEM-1 AI DECISION ENGINE TESTS PASSED ---');
   } finally {
     server.close();
+    await prisma.$disconnect();
   }
 }
 

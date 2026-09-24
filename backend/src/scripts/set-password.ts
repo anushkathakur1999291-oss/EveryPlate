@@ -6,7 +6,7 @@ async function main() {
   let password = '';
   for await (const chunk of process.stdin) password += chunk;
   password = password.replace(/\r?\n$/, '');
-  if (!email || password.length < 12 || password.length > 256) throw new Error('Provide an existing user email and a password of 12–256 characters on stdin');
+  if (!email || password.length < 15 || password.length > 256) throw new Error('Provide an existing user email and a password of 15–256 characters on stdin');
   const hash = await hashPassword(password);
   await prisma.$transaction(async tx => {
     const user = await tx.user.update({ where: { email }, data: { passwordHash: hash } });

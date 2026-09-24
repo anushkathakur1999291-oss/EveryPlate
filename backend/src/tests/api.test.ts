@@ -58,14 +58,15 @@ async function runApiTests() {
   try {
     // 1. Fetch Users
     const usersRes = await request('GET', '/api/auth/users');
+    const fixtures = await prisma.user.findMany({ include: { donorProfile: true, receiverProfile: true, driverProfile: true } });
     if (usersRes.status !== 200 || !Array.isArray(usersRes.body)) {
       throw new Error(`Failed to fetch users: ${JSON.stringify(usersRes.body)}`);
     }
     console.log(`✓ GET /api/auth/users: Retrieved ${usersRes.body.length} seeded users`);
 
-    const donor = usersRes.body.find((u: any) => u.email === 'marco@greenbistro.com');
-    let receiver = usersRes.body.find((u: any) => u.email === 'director@hopeshelter.org');
-    const driver = usersRes.body.find((u: any) => u.email === 'alex.rivera@rescue.org');
+    const donor = fixtures.find((u: any) => u.email === 'marco@greenbistro.com')!;
+    let receiver = fixtures.find((u: any) => u.email === 'director@hopeshelter.org')!;
+    const driver = fixtures.find((u: any) => u.email === 'alex.rivera@rescue.org')!;
 
     // 2. Donor creates a donation
     console.log('\n--- TEST: DONOR CREATES SURPLUS DONATION ---');
@@ -97,7 +98,7 @@ async function runApiTests() {
 
     // 3. Receiver views and accepts allocation
     console.log('\n--- TEST: RECEIVER VIEWS AND ACCEPTS ALLOCATION ---');
-    const matchedReceiverUser = usersRes.body.find((u: any) => u.receiverProfile?.id === proposedAlloc.receiverId);
+    const matchedReceiverUser = fixtures.find((u: any) => u.receiverProfile?.id === proposedAlloc.receiverId)!;
     if (!matchedReceiverUser) {
       throw new Error('Matched receiver user not found in seeded users');
     }
@@ -208,7 +209,7 @@ async function runApiTests() {
 
     // 7. Verify Impact Metrics
     console.log('\n--- TEST: IMPACT SUMMARY API ---');
-    const impactRes = await request('GET', '/api/impact/summary');
+    const impactRes = await request('GET', '/api/impact/summary', undefined, { 'x-user-id': donor!.id });
     if (impactRes.status !== 200) {
       throw new Error(`Failed to get impact summary: ${JSON.stringify(impactRes.body)}`);
     }
@@ -224,7 +225,7 @@ async function runApiTests() {
 
     // 8. Admin Command Center Dashboard
     console.log('\n--- TEST: ADMIN COMMAND CENTER DASHBOARD ---');
-    const adminRes = await request('GET', '/api/admin/dashboard');
+    const adminRes = await request('GET', '/api/admin/dashboard', undefined, { 'x-user-id': fixtures.find(u => u.role === 'ADMIN')!.id })!;
     if (adminRes.status !== 200) {
       throw new Error(`Failed to get admin dashboard: ${JSON.stringify(adminRes.body)}`);
     }

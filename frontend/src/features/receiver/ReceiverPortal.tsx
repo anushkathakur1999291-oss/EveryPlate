@@ -129,6 +129,7 @@ export const ReceiverPortal: React.FC = () => {
       const res = await api.getDeliveryOtp(deliveryId);
       setActiveDeliveryOtp({ deliveryId, otp: res.deliveryOtp });
     } catch (err: any) {
+      setActiveDeliveryOtp({ deliveryId, otp: '' });
       setActionError(`Could not load OTP: ${err.message}`);
     }
   };
@@ -490,7 +491,7 @@ export const ReceiverPortal: React.FC = () => {
               </p>
             </div>
             <div className="text-4xl font-mono font-semibold tracking-widest text-stone-700 bg-stone-50 py-3 rounded-lg border border-stone-200">
-              {activeDeliveryOtp.otp}
+              {activeDeliveryOtp.otp || 'Unavailable'}
             </div>
             <button disabled={isReplacingCode} className="text-sm underline text-stone-600" onClick={async () => { setIsReplacingCode(true); try { const result = await api.reissueOtp(activeDeliveryOtp.deliveryId, 'DELIVERY'); setActiveDeliveryOtp({ deliveryId: activeDeliveryOtp.deliveryId, otp: result.otp }); } catch(err) { setActionError((err as Error).message); setActiveDeliveryOtp(null); } finally { setIsReplacingCode(false); } }}>{isReplacingCode ? 'Replacing code…' : 'Generate a replacement code'}</button>
             <button

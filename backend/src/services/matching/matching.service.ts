@@ -45,6 +45,14 @@ export class MatchingService {
       orderBy: { id: 'asc' }
     });
 
+    const cutoff = new Date(currentTime.getTime() - 30 * 60000);
+    const drivers = await this.prisma.driverProfile.findMany({ where: {
+      isAvailable: true, currentLatitude: { not: null }, currentLongitude: { not: null },
+      OR: [{ locationUpdatedAt: { gte: cutoff } }, { locationUpdatedAt: null, updatedAt: { gte: cutoff } }],
+      assignments: { none: { status: 'ACCEPTED' } },
+    }, select: { currentLatitude: true, currentLongitude: true } });
+    const donorCoords = { latitude: donation.pickupLatitude, longitude: donation.pickupLongitude };
+    const fastestPickupMinutes = drivers.length ? Math.min(...drivers.map(d => GeoService.estimateTransitMinutes({ latitude: d.currentLatitude!, longitude: d.currentLongitude! }, donorCoords))) : Infinity;
     const eligible: ReceiverProfile[] = [];
     const disqualified: { receiverId: string; reason: string }[] = [];
 
@@ -104,6 +112,13 @@ export class MatchingService {
         continue;
       }
 
+      if (!receiver.hasOwnLogistics) {
+        const courierFeasible = Number.isFinite(fastestPickupMinutes) && GeoService.isFeasibleBeforeDeadline(
+          donorCoords, receiver, donation.safeDeadline,
+          new Date(Math.max(currentTime.getTime() + fastestPickupMinutes * 60000, donation.availableAt.getTime()))
+        ).isFeasible;
+        if (!courierFeasible) { disqualified.push({ receiverId: receiver.id, reason: 'No available platform courier with a recent feasible pickup location' }); continue; }
+      }
       eligible.push(receiver);
     }
 
@@ -128,7 +143,7 @@ export class MatchingService {
 
       const roadDistanceKm = GeoService.estimateRoadDistanceKm(donorCoords, receiverCoords);
       const travelMinutes = GeoService.estimateTransitMinutes(donorCoords, receiverCoords, this.config.averageSpeedKmH);
-      const feasibility = GeoService.isFeasibleBeforeDeadline(donorCoords, receiverCoords, donation.safeDeadline, currentTime);
+      const feasibility = GeoService.isFeasibleBeforeDeadline(donorCoords, receiverCoords, donation.safeDeadline, new Date(Math.max(currentTime.getTime(), donation.availableAt.getTime())));
 
       // 1. Urgency Score (0-100): More urgent when safeDeadline is closer
       const hoursRemaining = Math.max(0, (donation.safeDeadline.getTime() - currentTime.getTime()) / (3600 * 1000));

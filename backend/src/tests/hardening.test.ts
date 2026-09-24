@@ -1,3 +1,5 @@
+import { MatchingService } from '../services/matching/matching.service';
+import { OtpRecoveryService } from '../services/otp/recovery.service';
 import { MaintenanceService } from '../services/maintenance/maintenance.service';
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
@@ -22,6 +24,22 @@ async function main() {
   const makeDriver = (email: string) => prisma.user.create({ data: { name: email, email, role: 'DRIVER', driverProfile: { create: { fullName: email, vehicleType: 'BIKE', phone: 'PRIVATE-PHONE', currentLatitude: 40.71, currentLongitude: -74 } } }, include: { driverProfile: true } });
   const [driver, other] = await Promise.all([makeDriver('driver@test.local'), makeDriver('other@test.local')]);
   const donation = (quantity: number) => prisma.donation.create({ data: { donorId: donor.donorProfile!.id, foodCategory: 'COOKED_MEALS', foodDescription: 'Meals', quantity, pickupAddress: 'Private pickup', pickupLatitude: 40.71, pickupLongitude: -74, availableAt: new Date(Date.now()-1000), safeDeadline: new Date(Date.now()+3600000) } });
+  const matching = new MatchingService(prisma);
+  const probe = await donation(1);
+  const receiverId = receiver.receiverProfile!.id;
+  await prisma.receiverProfile.update({where:{id:receiverId},data:{hasOwnLogistics:false}});
+  await prisma.driverProfile.updateMany({data:{locationUpdatedAt:new Date(Date.now()-31*60000)}});
+  assert.equal((await matching.matchDonation(probe,1)).ranked.length,0);
+  await prisma.driverProfile.update({where:{id:driver.driverProfile!.id},data:{locationUpdatedAt:new Date()}});
+  assert.equal((await matching.matchDonation(probe,1)).ranked.length,1);
+  await prisma.driverProfile.updateMany({data:{isAvailable:false}});
+  assert.equal((await matching.matchDonation(probe,1)).ranked.length,0);
+  await prisma.receiverProfile.update({where:{id:receiverId},data:{hasOwnLogistics:true}});
+  assert.equal((await matching.matchDonation(probe,1)).ranked.length,1);
+  assert.equal((await matching.matchDonation({...probe,availableAt:probe.safeDeadline},1)).ranked.length,0);
+  await prisma.driverProfile.updateMany({data:{isAvailable:true,locationUpdatedAt:new Date()}});
+  await prisma.donation.delete({where:{id:probe.id}});
+  console.log('PASS matching requires a recent feasible courier unless receiver owns logistics; future pickup honors deadline');
   const [a,b] = await Promise.all([donation(15), donation(15)]);
   await Promise.all([engine.proposeAllocationsForDonation(a.id), engine.proposeAllocationsForDonation(b.id)]);
   const capacity = await prisma.receiverProfile.findUniqueOrThrow({ where: { id: receiver.receiverProfile!.id } });
@@ -82,6 +100,16 @@ async function main() {
   for(let n=0;n<5;n++) await assert.rejects(fulfillment.verifyPickupOtp(own.id,ownCode==='111111'?'222222':'111111',receiver.id));
   await assert.rejects(fulfillment.verifyPickupOtp(own.id,ownCode,receiver.id),/Too many/);
   assert.equal(await prisma.oTPVerification.count({where:{deliveryId:own.id,isSuccessful:false}}),5);
+  const recovery = new OtpRecoveryService(prisma);
+  await assert.rejects(recovery.reissue(own.id,'PICKUP',other.id));
+  const replacement = await recovery.reissue(own.id,'PICKUP',donor.id);
+  await assert.rejects(recovery.reissue(own.id,'PICKUP',donor.id),/Wait one minute/);
+  await assert.rejects(fulfillment.verifyPickupOtp(own.id,ownCode,receiver.id));
+  await fulfillment.verifyPickupOtp(own.id,replacement.otp,receiver.id);
+  await assert.rejects(recovery.reissue(own.id,'PICKUP',donor.id));
+  assert.equal(await prisma.oTPVerification.count({where:{deliveryId:own.id,isSuccessful:false}}),6);
+  console.log('PASS owner-only OTP recovery, cooldown, old-code invalidation, preserved audit and successful replacement');
+
   assert.throws(()=>OtpService.reveal(OtpService.seal('123456','expired',new Date(Date.now()-1)),'expired'));
   assert.throws(()=>OtpService.reveal(delivery.deliveryOtp,`${allocation.id}:PICKUP`));
   await prisma.donation.update({ where: { id: c.id }, data: { safeDeadline: new Date(Date.now()-1000) } });
@@ -91,6 +119,21 @@ async function main() {
   assert.equal((await prisma.delivery.findUniqueOrThrow({ where: { id: own.id } })).status,'EXPIRED');
   assert.equal(await prisma.impactRecord.count(),1);
   console.log('PASS concurrent expiry releases capacity once without impact');
+  const recoverable = await donation(10);
+  const recoveryAlloc = (await engine.proposeAllocationsForDonation(recoverable.id)).allocations[0];
+  await engine.acceptAllocation(recoveryAlloc.id);
+  const recoverableDelivery = await fulfillment.createDeliveryForAllocation(recoveryAlloc.id,'PLATFORM_DRIVER',undefined,receiver.id);
+  await prisma.driverClaim.create({data:{deliveryId:recoverableDelivery.id,driverId:driver.driverProfile!.id,latitude:40.71,longitude:-74,closesAt:new Date(Date.now()-1000)}});
+  await Promise.all([new DispatchService(prisma).recoverClosedWindows(),new DispatchService(prisma).recoverClosedWindows()]);
+  assert.equal(await prisma.driverAssignment.count({where:{deliveryId:recoverableDelivery.id,status:'ACCEPTED'}}),1);
+  await fulfillment.cancelPlatformDriver(recoverableDelivery.id,driver.driverProfile!.id,'recovery test');
+  await prisma.driverClaim.create({data:{deliveryId:recoverableDelivery.id,driverId:other.driverProfile!.id,latitude:40.71,longitude:-74,closesAt:new Date(Date.now()-500)}});
+  await fulfillment.switchDeliveryMode(recoverableDelivery.id,'RECEIVER_LOGISTICS',{driverName:'Staff'},receiver.id);
+  await fulfillment.switchDeliveryMode(recoverableDelivery.id,'PLATFORM_DRIVER',undefined,receiver.id);
+  await new DispatchService(prisma).recoverClosedWindows();
+  assert.equal(await prisma.driverAssignment.count({where:{deliveryId:recoverableDelivery.id,status:'ACCEPTED'}}),0);
+  console.log('PASS duplicate dispatch recovery and cancelled claim-window isolation');
+
   console.log('PASS rejection race, mode-switch assignment cleanup, own logistics, OTP lockout/expiry/stage binding');
   // HTTP and sockets: anonymous, role, object access and actual password sessions.
   const password='test-password-at-least-twelve';

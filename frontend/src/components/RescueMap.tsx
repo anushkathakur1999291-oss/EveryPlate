@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 
 export interface MapPoint {
@@ -34,6 +34,7 @@ export const RescueMap: React.FC<RescueMapProps> = ({
   zoom = 13,
   height = '420px',
 }) => {
+  const [tileError, setTileError] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -49,18 +50,21 @@ export const RescueMap: React.FC<RescueMapProps> = ({
         zoomControl: true,
       });
 
-      // Modern dark tile layer from CartoDB
+      // Neutral basemap; operations remain usable when the tile provider is offline.
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 19,
-      }).addTo(map);
+      }).on('tileerror', () => setTileError(true)).on('tileload', () => setTileError(false)).addTo(map);
 
       markersLayerRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
     }
 
+    const observer = new ResizeObserver(() => mapInstanceRef.current?.invalidateSize());
+    observer.observe(mapContainerRef.current);
     return () => {
+      observer.disconnect();
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -159,8 +163,9 @@ export const RescueMap: React.FC<RescueMapProps> = ({
     <div className="relative rounded-lg overflow-hidden border border-stone-200 shadow-none bg-white">
       <div ref={mapContainerRef} style={{ height, width: '100%' }} />
 
+      {tileError && <p role="status" className="absolute top-3 right-3 left-12 z-[1000] bg-white border border-stone-200 rounded px-3 py-2 text-xs text-stone-700">Map tiles unavailable. Use the pickup and destination details to continue.</p>}
       {/* Map Legend Overlay */}
-      <div className="absolute bottom-3 left-3 z-[1000] bg-white/95  px-3 py-2 rounded-lg border border-stone-200 text-xs text-stone-700 flex flex-wrap items-center gap-2 max-w-[90%] shadow-none">
+      <div className="bg-white px-3 py-2 border-t border-stone-200 text-xs text-stone-700 flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
           <span>Donors</span>

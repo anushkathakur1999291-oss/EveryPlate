@@ -550,7 +550,7 @@ export const AdminPortal: React.FC = () => {
               <span>Real-Time Geospatial Rescue Grid</span>
             </h2>
             <p className="text-xs text-stone-600 mt-0.5">
-              Live tracking of donors, eligible receivers, available couriers, and active delivery corridors
+              Operational snapshot: up to 100 records per group. Routes and locations are estimates; totals above cover all records.
             </p>
           </div>
           <span className="text-xs font-mono font-bold text-stone-700">

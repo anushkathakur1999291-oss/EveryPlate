@@ -1,3 +1,4 @@
+import { OtpService } from '../services/otp/otp.service';
 import { PrismaClient, Role, NeedLevel, DonationStatus, AllocationStatus, DeliveryMode, DeliveryStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -214,8 +215,8 @@ async function runDomainVerification() {
       allocationId: allocationA.id,
       deliveryMode: DeliveryMode.RECEIVER_LOGISTICS,
       status: DeliveryStatus.RECEIVER_LOGISTICS_ASSIGNED,
-      pickupOtp: '4821',
-      deliveryOtp: '7392',
+      pickupOtp: OtpService.seal(OtpService.generateOtp(),`${allocationA.id}:PICKUP`,donation.safeDeadline),
+      deliveryOtp: OtpService.seal(OtpService.generateOtp(),`${allocationA.id}:DELIVERY`,donation.safeDeadline),
       receiverLogisticsAssignment: {
         create: {
           driverName: 'Brother Dave (Shelter Staff)',
@@ -242,8 +243,8 @@ async function runDomainVerification() {
       allocationId: allocationB.id,
       deliveryMode: DeliveryMode.PLATFORM_DRIVER,
       status: DeliveryStatus.DRIVER_ASSIGNED,
-      pickupOtp: '1934',
-      deliveryOtp: '8205',
+      pickupOtp: OtpService.seal(OtpService.generateOtp(),`${allocationB.id}:PICKUP`,donation.safeDeadline),
+      deliveryOtp: OtpService.seal(OtpService.generateOtp(),`${allocationB.id}:DELIVERY`,donation.safeDeadline),
       driverAssignments: {
         create: {
           driverId: driverUser.driverProfile!.id,
@@ -271,7 +272,7 @@ async function runDomainVerification() {
     data: {
       deliveryId: deliveryB.id,
       otpType: 'PICKUP',
-      submittedOtp: '1934',
+      submittedOtp: '[REDACTED]',
       isSuccessful: true,
       verifiedByUserId: driverUser.id
     }
@@ -290,7 +291,7 @@ async function runDomainVerification() {
     data: {
       deliveryId: deliveryB.id,
       otpType: 'DELIVERY',
-      submittedOtp: '8205',
+      submittedOtp: '[REDACTED]',
       isSuccessful: true,
       verifiedByUserId: receiverBUser.id
     }

@@ -1,6 +1,6 @@
 # Surplus to Shelter — current engineering handoff
 
-Updated 2026-09-24 during production hardening. **Work is ongoing; do not call the whole project production-ready.** The earlier “100% complete, no known issues” handoff is archived at `docs/PROJECT_HANDOFF_PRE_HARDENING.md` and is historical, not current truth.
+Updated 2026-09-25 after the latest hardening, regression, and browser checks. This is an interruption checkpoint; the production smoke test remains unresolved. **Work is ongoing; do not call the whole project production-ready.** The earlier “100% complete, no known issues” handoff is archived at `docs/PROJECT_HANDOFF_PRE_HARDENING.md` and is historical, not current truth.
 
 ## User objective and constraints
 
@@ -19,16 +19,18 @@ Confirmed business rules:
 
 Backend: Express 4, TypeScript, Prisma 6.19.3 generated client, SQLite. Frontend: React 19, Vite 8, Tailwind 4, Leaflet, Socket.io. Frontend dev port **3000**, backend 4000. Original documentation incorrectly claimed 5173. Actual default AI implementation is heuristic fallback with optional configured inference endpoint; it is not a verified model benchmark.
 
-No AGENTS.md found. Entire project was untracked at takeover; no commits or destructive git operations were performed. `.gitignore` now excludes environment files, databases, dependencies, builds. Local `.env` is not published and contains an explicit private `DEMO_MODE=true` plus a generated persistent encryption key; production refuses demo mode. Never print/commit that key.
+No AGENTS.md found. The project was untracked at initial takeover; the working tree now has tracked modifications and new files. This agent performed no commits or destructive git operations. `.gitignore` now excludes environment files, databases, dependencies, builds. Local `.env` is not published and contains an explicit private `DEMO_MODE=true` plus a generated persistent encryption key; production refuses demo mode. Never print/commit that key.
 
 ## IMPLEMENTED
 
 ### Backend/access/security
 - Shared application Prisma client; domain services keep dependency injection.
-- Password hashing with salted async scrypt; opaque random session tokens stored hashed in new `Session` model, 12-hour expiry, HttpOnly/SameSite=Strict cookies (Secure in production), login/logout, credential setter script. Production ignores caller-selected identity headers. Demo directory returns only id/name/role and is absent outside demo mode.
+- Password hashing with versioned salted async scrypt (N=32768, r=8, p=3, max four concurrent derivations), automatic upgrade of earlier hashes on login; opaque random session tokens stored hashed in new `Session` model, 12-hour expiry, HttpOnly/SameSite=Strict cookies (Secure in production), login/logout, credential setter script. Production ignores caller-selected identity headers. Demo directory returns only id/name/role and is absent outside demo mode.
 - Authenticated API boundary, admin RBAC, delivery ownership/assigned-transporter authorization, strict mutation validation, bounded JSON body, explicit CORS origins, write-origin checks and in-process IP rate limits.
 - Response sanitation removes OTPs, contact fields, audit payloads, password/token hashes from general resource graphs. Exact job addresses withheld until assignment; donor cannot see receiver coordinates; receiver donor location only for its own-logistics flow. Dedicated owner code endpoints remain.
-- Six-digit random OTPs, AES-256-GCM encrypted at rest and bound to allocation/stage, expire at safe deadline, five persistent failed attempts per stage, redacted attempt audit, consumed codes cleared. Verification checks assigned identity, state, availability, deadline, replay. Invalid attempts commit their audit before a controlled error is returned.
+- Six-digit random OTPs, AES-256-GCM encrypted at rest and bound to allocation/stage, expire at safe deadline, five persistent failed attempts per code generation, redacted attempt audit, consumed codes cleared. Verification checks assigned identity, state, availability, deadline, replay. Invalid attempts commit their audit before a controlled error is returned.
+- Owner-only OTP replacement: donor for pickup, receiver for receipt; state/deadline checks, 60-second cooldown, at most two replacements per stage, versioned attempts and redacted audit. Old codes become invalid while failed-attempt history is preserved. Owner UI supports replacement, including unavailable legacy codes.
+- Controlled account/profile provisioning via `backend/src/scripts/create-account.ts` accepts validated JSON on stdin and creates role/profile atomically. Password provisioning requires 15–256 characters; resets revoke existing sessions. No public registration/recovery or provisioning UI yet.
 - Controlled domain errors, generic safe unexpected/database errors, request IDs and JSON request/error logs without body/secrets. `/health`, database `/ready`, shutdown handling.
 - Server-side dispatch advisor uses actual allocation, receiver and driver counts instead of frontend fabricated numbers.
 
@@ -36,14 +38,15 @@ No AGENTS.md found. Entire project was untracked at takeover; no commits or dest
 - Matching and allocation balances are read inside a transaction after obtaining SQLite writer lock. Atomic conditional capacity increments, rejection/release/rematch in one transaction, conditional accept prevents concurrent accept/reject overwrites.
 - Accepted-only fulfillment, owns-logistics/personnel checks, deadline checks, driver availability reservation, no double active assignment, pre-pickup-only cancellation, correct assignment cleanup on mode switch and completion.
 - Parent donation fulfilled only when completed quantities reach original donation quantity; rejected historical rows no longer block completion and partial rescue no longer falsely fulfills parent.
-- Durable two-second `DriverClaim` window, deterministic ETA ordering/tie-break, feasible claimant wins; tests prove two competing claims produce one winner.
+- Durable two-second `DriverClaim` window, deterministic ETA ordering/tie-break, feasible claimant wins. Winning assignment validates the pending closed-window claim in the assignment transaction. A bounded maintenance sweep resolves closed windows after interruptions; duplicate resolvers cannot create two assignments. Mode switching and expiry invalidate pending claims; resolved claims older than seven days are removed.
 - Idempotent expiry maintenance releases capacity, cancels active assignments, clears OTPs and never invents impact. Bounded pending/partial rematching runs every 30 seconds in deadline order; interrupted donation matching is retried instead of returning a misleading failed creation.
-- Stable matching tie-breaks, weights validation, malformed preference JSON handling, availableAt included in matching feasibility.
+- Stable matching tie-breaks, weights validation, malformed preference JSON handling, availableAt included in matching feasibility. Platform-only receivers require an available courier with recent coordinates (30-minute cutoff, legacy updatedAt fallback) and a feasible pickup-to-receiver journey; receivers with own logistics remain eligible without platform drivers.
+- Maintenance isolates expiry/matching failures per donation; matching retries use `nextMatchAttemptAt` and a 60-second delay so repeatedly unmatched entries do not monopolize the first batch. Scheduling behavior still needs a dedicated backlog-fairness test.
 
 ### Database/performance
-- Baseline + hardening + legacy cleanup migrations in `backend/prisma/migrations`.
+- Five migrations in `backend/prisma/migrations`: baseline, hardening, legacy cleanup, OTP recovery (004), matching schedule/location freshness/claim reference guards (005). Migrations 004/005 are additive and preserve existing custom triggers. Claim insert guards reject missing delivery/driver references; deletion triggers clean up dependent claims. These are not Prisma foreign-key relations; update-path reference constraints still need review.
 - Query-pattern indexes, partial unique indexes for one accepted assignment per delivery/driver, SQLite triggers enforce nonnegative/feasible receiver capacity and parent allocation quantity bounds.
-- Existing development DB upgraded after proving the migration on a copy. Row counts for users/donations/allocations/deliveries/impact preserved; SQLite integrity/foreign-key checks passed. Backup: `/tmp/annsafe-before-hardening.db`; verification copy `/tmp/annsafe-upgrade-check.db`. Preserve a durable backup outside /tmp if needed.
+- Existing development DB upgraded **through migration 003 only at the last confirmed checkpoint**, after proving that upgrade on a copy. Migrations 004/005 passed on isolated test databases but still need a backed-up, verified upgrade of the local development database before normal use of the latest app. Row counts for users/donations/allocations/deliveries/impact preserved; SQLite integrity/foreign-key checks passed. Backup: `/tmp/annsafe-before-hardening.db`; verification copy `/tmp/annsafe-upgrade-check.db`. Preserve a durable backup outside /tmp if needed.
 - Legacy completed driver assignments repaired, completed codes removed, historical attempt plaintext redacted.
 - Donation/allocation/open-job lists have cursor pagination (50 default, max100), array responses with `X-Next-Cursor`. UI Load more wired.
 - Impact totals/averages/mode/category statistics aggregate in database. Admin entity snapshots capped at100; actual totals use counts.
@@ -59,40 +62,56 @@ No AGENTS.md found. Entire project was untracked at takeover; no commits or dest
 - Existing role features preserved, clear task language, compact donor quick-fill disclosure, real API data.
 - Accessible shared dialog (focus trap/Escape/restore), inline retry/error states replacing alerts, cancellation/mode-switch dialogs replacing prompts, labelled key inputs.
 - Receiver coordinator can view pickup details and verify both custody steps through actual UI; browser end-to-end verified.
-- Map popup user text uses DOM textContent (stored-XSS fix), stable map initialization, valid zero coordinates, route lines labelled estimated.
+- Map popup user text uses DOM textContent (stored-XSS fix), stable map initialization, valid zero coordinates, route lines labelled estimated. Latest build adds resize observation and a tile-error message; offline behavior has not yet been browser-verified.
+- Driver current delivery appears before opportunities, pending/active-job actions are guarded, and production claims obtain browser coordinates. Authenticated `PATCH /api/drivers/my/location` and a production location-update action populate fresh coordinates for matching; continuous location sharing is not yet implemented.
+- Donor status remains visible after pickup while consumed-code actions hide. Corrected admin impact heading and meal-based quick-fill example. Latest intake changes preserve the extracted absolute deadline instead of rounding/extending it; non-meal quantities require explicit meal-count entry instead of automatic kg-to-meals conversion. These latest intake changes build but still need focused browser regression.
 - Lazy role pages and map reduce initial JS from503.83kB to~280kB before gzip (~88.5kB gzip). Full build no oversized initial chunk warning.
-- Screenshots in `docs/validation`; all four roles tested at1440px and390px without horizontal overflow or page exceptions, active courier and own-logistics flows included.
+- Screenshots in `docs/validation`; all four roles passed at 1440, 768, 390 and 320px without horizontal overflow or page exceptions. Fixed 320px donation status wrapping. Active courier and receiver-owned pickup/receipt flows included; further visual/keyboard review remains.
 
 ### Deployment/tooling
 - `.env.example`, `.gitignore`, `.dockerignore`, multi-stage non-root `Dockerfile`, persistent-volume `compose.yaml`, single-origin production static serving, `docs/DEPLOYMENT.md`.
-- `npm test` in backend runs isolated migrations + hardening/session regressions under `/tmp`; original database untouched by tests.
+- `npm test` in backend runs isolated hardening/session tests followed by all seven modernized original suites under `/tmp`; original database untouched. `test-regression.mjs` also accepts one named suite.
+- `backend/scripts/demo.mjs` now creates its own database/server, seeds before socket authentication, uses authorized identities and six-digit owner codes, and exercises simultaneous claims. Removed misleading speed/source claims and corrected the displayed development port.
+- Portable browser runner `frontend/scripts/check-browser.mjs` uses the frontend Playwright devDependency and `BROWSER_PATH` override; no dependency on another project. Production runner `frontend/scripts/check-production.mjs` provisions an isolated account and temporary HTTPS proxy/certificate, but has not passed.
+- Production static path supports optional `FRONTEND_DIST_DIR` (default remains backend/public); `/ready` now queries the Session table to require the migrated schema. Latest production readiness failure needs investigation; do not assume these changes work end to end.
 - Demo reset now requires `ALLOW_DEMO_RESET=true` and cannot run in production. Legacy domain test refuses non-/tmp databases.
 
-## VERIFIED (latest completed checks)
+## IMPLEMENTED — continuation on September 25
 
-- Backend TypeScript build passes.
-- Frontend TypeScript/Vite production build passes (~280kB initial JS).
-- New isolated hardening suite passes: capacity race, database constraint, duplicate matching, accept race, rejected invalid fulfillment, lowest-ETA dispatch, cancellation ownership, encrypted OTP/stage binding, persistent failed audit, expiry/lockout/replay, one impact under concurrent completion, driver release, rejection race, mode switching, concurrent expiration, safe API privacy, pagination/aggregate numbers, strict request validation, password login, socket room isolation.
-- Non-demo session suite passes: forged identity headers ignored, directory unavailable, login cookie, origin rejection, logout revocation and socket disconnect.
-- Browser suite (`/tmp/check-annsafe.mjs`, uses existing Playwright installation under `/home/samashech/Documents/fire-forge/node_modules`) passes four role pages desktop/mobile and receiver coordinator pickup+receipt. It seeds a new isolated database and starts temporary servers on3300/4400, then stops them. Latest run DB `/tmp/annsafe-browser-JarNCD`.
-- Frontend lint exits0 with remaining React hook/fast-refresh warnings. Do not claim zero warnings.
-- Docker daemon check fails permission denied even after approved unsandboxed access; container not yet built/run. Do not claim Docker validation.
+- OTP owner recovery: donor pickup/receiver receipt only, correct lifecycle, deadline bound, 60-second cooldown, maximum two replacements per stage. Versioned failed-attempt audit retained; old code invalidated. Legacy active codes can be replaced through UI.
+- Closed dispatch windows recovered by bounded maintenance sweep; duplicate resolvers result in one assignment; mode switching invalidates old claims. Resolved claims retained seven days. Database insert/deletion guards protect claim references.
+- Maintenance isolates item failures; `nextMatchAttemptAt` schedules matching retries to avoid backlog starvation. A receiver without its own logistics requires a recent, available, deadline-feasible platform courier; receiver-owned logistics remains independently eligible. New driver location endpoint and production workspace action record location freshness.
+- Stronger versioned scrypt parameters (N32768/r8/p3), four concurrent derivations maximum, old-hash upgrade on login. Controlled atomic account/profile CLI, passwords 15–256 characters via stdin. No public signup/recovery yet.
+- All original regression scripts and demo walkthrough modernized for authentication, encrypted six-digit OTPs, privacy-safe events and isolated databases. Negative tests no longer catch their own assertion failures. Demo no longer attaches to a real development server.
+- Playwright is now a repository dev dependency. Portable `frontend/scripts/check-browser.mjs` and `check-production.mjs` replace the external temporary browser script. Browser width coverage expanded to 1440/768/390/320px; donor status wraps correctly at 320px.
+- Driver active job takes priority, unavailable actions are disabled while assigned/claiming, real coordinates replace fake fallback. Donor status remains visible after pickup. Meal-only quick fill does not treat kg as meals; extracted absolute deadline is preserved instead of rounding/extending it. Review copy clarifies suggestions need confirmation.
+- Map resize observation, tile-failure notice, legend outside map to preserve route and attribution. Admin labels 100-record snapshot limit. Heading/copy cleanup.
+- Production static directory override for non-container hosting; readiness queries an actual session table. HTTPS browser proof verifies Secure cookie and production account/session flow.
+- Existing development DB upgraded through migration005 after SQLite backup and copy proof. Core counts unchanged: 11 users, 2 donations, 2 allocations, 2 deliveries, 2 impact records; integrity/foreign-key checks pass. Latest backup `/tmp/annsafe-before-recovery-schedule.db`; temporary backups need durable retention by operator.
 
-## PARTIALLY IMPLEMENTED / REMAINING — continue here
+## VERIFIED
 
-1. Finish current product/visual review and regression pass. One small visual regression found: donor delivery mode/status was hidden after pickup along with OTP button; restore status visibility while keeping consumed-code button hidden. Admin environmental heading currently awkward (“Estimated environmental Ecological Offsets”); clean copy. Seed quick-fill “40kg produce” mismatches meal-only intake; correct/clarify units.
-2. Secure operational OTP recovery/reissue for lockout/legacy active codes is absent. Existing active four-digit codes fail closed; local migrated DB had completed deliveries only. Need scoped audited recovery with cooldown/versioned attempt counters, not a blanket reset that bypasses guessing limits.
-3. Production account/profile onboarding is incomplete. Password tool only sets existing user credentials; no public registration, recovery or admin provisioning UI. Do not deploy using demo accounts.
-4. Dispatch records persist, but a closed window after process crash resolves only when a new claimant request arrives. Add bounded recovery sweeper and robust duplicate resolver tests. Location priority uses submitted coordinates; freshness/accuracy is not independently verified.
-5. Realtime remains single-process; no durable notification/outbox delivery. REST reconnect recovers snapshots. Add periodic/visibility reconciliation if needed and ensure expiry/rematch events refresh every role/capacity view.
-6. Matching feasibility does not yet explicitly require a currently feasible platform driver when receiver has no own logistics; real claim feasibility does. Urgency is constant across receivers for one donation; maintenance orders backlog by deadline. Do not change scoring/business policy without understanding this.
-7. Scope large admin lists/truncation clearly in UI; category aggregate and cap100 implemented but map pagination/filter controls not. Multi-process load, sustained thousands-user benchmarks and query-plan evidence not completed. SQLite is deliberately single-node, not declared horizontally scalable.
-8. Original phase test scripts and demo walkthrough assume public demo directory profiles, plaintext four-digit OTP fields and unauthenticated AI endpoints; not yet all modernized/re-run. Some original negative tests catch their own failures. New npm test is the validated gate; do not claim every legacy suite passes.
-9. Test tablet/320px layouts, keyboard/dialog navigation, real production cookies/static assets, offline map/error states, race recovery/repeated submissions. Some legacy microcopy remains technical; admin layout still quite long on mobile and driver map composition can improve. Driver current-job priority and actionable estimated ETA presentation need final designer review.
-10. Docker build/compose/HTTPS smoke test pending daemon access. Environment validation, hard proxy/IP configuration, CSP/content headers, account password KDF review, external tile policy and backup/restore operational test need completion. No deployment/publishing performed.
-11. Auditable business logs currently mainly delivery DB events + generic HTTP logs; allocation/donation event coverage and persistent notifications need review.
-12. Startup maintenance retries fail batch-wide on first error; improve per-item isolation. Bounded backlog selection can starve later entries; evaluate retry scheduling, without introducing an unnecessary queue service.
-13. Check driver claim FK/retention (DriverClaim currently scalar IDs only), model constraint completeness, raw SQL date representation consistency in average matching duration, API conflict mapping and all legacy error paths.
+- Backend TypeScript and frontend TypeScript/Vite builds pass. Initial JS ~280.22kB / 88.59kB gzip; Leaflet/roles split.
+- Hardening/session suite passes, including matching courier freshness/availability, independent own logistics, future pickup deadline, capacity races, quantity guards, claim winner/recovery races, state/ownership checks, encrypted OTP/recovery/cooldown/replay/lockout, impact idempotence, expiry, privacy, pagination, sessions and socket authorization.
+- All seven original regression suites pass against disposable databases (`/tmp/annsafe-regression-btOjpg`).
+- Isolated demo walkthrough passes (`/tmp/annsafe-demo-PPdeH4`).
+- Browser: all four role screens at 1440/768/390/320px pass no-overflow/no-page-error checks; receiver-owned pickup and receipt complete in mobile browser. Screenshots in `docs/validation`.
+- Production HTTPS test passes account creation, built static UI, Secure/HttpOnly/SameSite cookie, refresh, disabled demo directory and logout revocation (`/tmp/annsafe-production-1OKMBg`). This uses a local temporary TLS proxy, not a deployed environment.
+- Frontend lint exits0 with nine React hook/fast-refresh warnings; not zero warnings.
+- Docker Compose config validates, but daemon access denied even outside sandbox. Container build/run remains unverified.
+
+## PARTIALLY IMPLEMENTED / REMAINING
+
+1. The broad production overhaul is not fully finished. Complete sustained-load benchmarks/query-plan review, final visual/accessibility review, and target-environment deployment verification before claiming production readiness.
+2. SQLite, socket delivery, rate limits and maintenance are single-node/process. No durable notification outbox; model/provider integration is incomplete. REST reconnect recovers state; visibility/periodic reconciliation and missed-event tests can improve it.
+3. Location writes/rooms are authorized, but live frontend tracking is not a complete continuously updated courier experience. Browser coordinates are self-reported; freshness is checked for matching, accuracy not independently verified. Current route/ETA estimates are not road navigation.
+4. Admin snapshots explicitly cap100; pagination/filter controls remain. Matching still scans receiver candidates; thousands-user scalability is not benchmarked. Some dense admin/mobile presentation and broader keyboard/screen-reader testing remain.
+5. Public registration/verified recovery and administrative provisioning UI are absent; controlled CLI provisioning is implemented. Operational password reset/recovery remains manual.
+6. Docker execution and real TLS/proxy/IP rate-limiting deployment remain unverified. App intentionally does not trust arbitrary forwarded headers. CSP, tile-provider policy/capacity and durable backup automation require deployment review.
+7. Business audit coverage is strongest for delivery transitions/OTP; donation/allocation structured business logs and persistent notifications remain partial. API response/error envelopes remain compatibility-preserving rather than universally versioned.
+8. Database claim insert guards and deletion cleanup exist; direct claim reference updates do not have full FK-equivalent enforcement. Further model constraint audit, API/domain validation consistency and broad concurrent load tests remain.
+9. Existing extraction/advisory feature is deterministic fallback unless inference endpoint configured. Its suggested food deadline/category/confidence is not externally validated; UI requires review. Do not claim AI latency/model benchmarks or certified food safety.
+10. Nine lint warnings remain; do not silence them broadly. Finish intentional lifecycle fixes when addressing state refresh. Browser checks prove specific paths, not exhaustive accessibility or every offline state.
 
 ## OPTIONAL FUTURE WORK
 
@@ -105,7 +124,10 @@ npm --prefix backend run build
 npm --prefix frontend run build
 npm --prefix frontend run lint
 node backend/scripts/test-hardening.mjs  # needs localhost binding
-node /tmp/check-annsafe.mjs             # needs browser + local listeners
+node backend/scripts/test-regression.mjs
+node backend/scripts/demo.mjs
+node frontend/scripts/check-browser.mjs     # build backend first; browser + local listeners
+node frontend/scripts/check-production.mjs  # build both first; currently failing readiness
 ```
 
 Do not recreate the application or overwrite user data. Continue from actual code and this handoff. Update this document after the remaining work, distinguishing implemented, partial, remaining and optional work.

@@ -75,14 +75,15 @@ async function runSocketTests() {
 
   try {
     const usersRes = await request('GET', '/api/auth/users');
-    const donor = usersRes.body.find((u: any) => u.email === 'marco@greenbistro.com');
-    const driver = usersRes.body.find((u: any) => u.email === 'alex.rivera@rescue.org');
-    const admin = usersRes.body.find((u: any) => u.role === 'ADMIN');
+    const fixtures = await prisma.user.findMany({ include: { donorProfile: true, receiverProfile: true, driverProfile: true } });
+    const donor = fixtures.find((u: any) => u.email === 'marco@greenbistro.com')!;
+    const driver = fixtures.find((u: any) => u.email === 'alex.rivera@rescue.org')!;
+    const admin = fixtures.find((u: any) => u.role === 'ADMIN')!;
 
     // Connect clients
-    adminSocket = Client(SERVER_URL);
-    donorSocket = Client(SERVER_URL);
-    driverSocket = Client(SERVER_URL);
+    adminSocket = Client(SERVER_URL, { auth: { userId: admin.id } });
+    donorSocket = Client(SERVER_URL, { auth: { userId: donor.id } });
+    driverSocket = Client(SERVER_URL, { auth: { userId: driver.id } });
 
     await Promise.all([
       new Promise<void>((res) => adminSocket!.on('connect', () => res())),
@@ -126,10 +127,10 @@ async function runSocketTests() {
 
     const createdDonation = createDonationRes.body.donation;
     const proposedAlloc = createdDonation.allocations[0];
-    const receiverUser = usersRes.body.find((u: any) => u.receiverProfile?.id === proposedAlloc.receiverId);
+    const receiverUser = fixtures.find((u: any) => u.receiverProfile?.id === proposedAlloc.receiverId)!;
 
     // Connect matched receiver socket
-    receiverSocket = Client(SERVER_URL);
+    receiverSocket = Client(SERVER_URL, { auth: { userId: receiverUser.id } });
     await new Promise<void>((res) => receiverSocket!.on('connect', () => res()));
     receiverSocket.emit('join:role', 'RECEIVER');
     receiverSocket.emit('join:user', receiverUser.id);
@@ -215,7 +216,10 @@ async function runSocketTests() {
       { 'x-user-id': driver.id }
     );
 
-    const impactRecord = await adminImpactPromise;
+    await adminImpactPromise;
+    const summaryResponse = await request('GET','/api/impact/summary',undefined,{'x-user-id':admin.id});
+    if (summaryResponse.status !== 200 || summaryResponse.body.totalMealsRescued !== 25) throw new Error('Impact snapshot did not reconcile after invalidation');
+    const impactRecord = { mealsRescued: summaryResponse.body.totalMealsRescued, weightDivertedKg: summaryResponse.body.totalWeightDivertedKg, co2eAvoidedKg: summaryResponse.body.totalCo2eAvoidedKg };
     console.log(`✓ Admin received 'IMPACT_UPDATED' event! Rescued: ${impactRecord.mealsRescued} meals, Diverted: ${impactRecord.weightDivertedKg} kg, CO2e: ${impactRecord.co2eAvoidedKg} kg`);
 
     console.log('--- ALL PHASE 6 REAL-TIME WEBSOCKET EVENT TESTS PASSED ---');

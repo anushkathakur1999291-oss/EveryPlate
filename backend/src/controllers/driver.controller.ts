@@ -12,13 +12,20 @@ import { prisma } from '../lib/prisma';
 const fulfillmentService = new FulfillmentService(prisma);
 
 export class DriverController {
+  static async updateLocation(req: Request, res: Response) {
+    try {
+      if (!req.user?.driverProfile) return res.status(403).json({ error: 'Driver profile required' });
+      await prisma.driverProfile.update({ where: { id: req.user.driverProfile.id }, data: { currentLatitude: req.body.latitude, currentLongitude: req.body.longitude, locationUpdatedAt: new Date() } });
+      res.json({ updated: true });
+    } catch(err) { respondError(req,res,err); }
+  }
+
   static async getAvailableJobs(req: Request, res: Response) {
     try {
       const user = req.user;
-      const driverCoords = {
-        latitude: user?.driverProfile?.currentLatitude || 40.7180,
-        longitude: user?.driverProfile?.currentLongitude || -74.0010,
-      };
+      const lat = user?.driverProfile?.currentLatitude;
+      const lng = user?.driverProfile?.currentLongitude;
+      const driverCoords = lat != null && lng != null ? { latitude: lat, longitude: lng } : null;
 
       const deliveries = await prisma.delivery.findMany({
         ...pagination(req),
@@ -52,10 +59,10 @@ export class DriverController {
           longitude: d.allocation.receiver.longitude,
         };
 
-        const distanceToPickupKm = GeoService.estimateRoadDistanceKm(driverCoords, donorCoords);
-        const etaToPickupMinutes = GeoService.estimateTransitMinutes(driverCoords, donorCoords);
+        const distanceToPickupKm = driverCoords ? GeoService.estimateRoadDistanceKm(driverCoords, donorCoords) : null;
+        const etaToPickupMinutes = driverCoords ? GeoService.estimateTransitMinutes(driverCoords, donorCoords) : null;
         const deliveryTransitMinutes = GeoService.estimateTransitMinutes(donorCoords, receiverCoords);
-        const totalEtaMinutes = etaToPickupMinutes + deliveryTransitMinutes;
+        const totalEtaMinutes = etaToPickupMinutes == null ? null : etaToPickupMinutes + deliveryTransitMinutes;
 
         return {
           deliveryId: d.id,
@@ -141,7 +148,7 @@ export class DriverController {
       );
 
       const receiverUserId = (result.delivery as any).allocation?.receiver?.userId;
-      SocketService.emitDriverAssigned(result.delivery, user.driverProfile.id, receiverUserId);
+      // Assignment event is emitted by the dispatch resolver, including recovery paths.
 
       res.json({
         message: 'Delivery job claimed successfully',

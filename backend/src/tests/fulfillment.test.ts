@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import { OtpService } from '../services/otp/otp.service';
 import { PrismaClient, DeliveryMode, DeliveryStatus } from '@prisma/client';
 import { FulfillmentService } from '../services/fulfillment/fulfillment.service';
 import { AllocationEngine } from '../services/allocation/allocation.service';
@@ -79,12 +81,8 @@ async function runFulfillmentTests() {
   console.log('✓ Verified: Dispatch metric chose driver with lowest total ETA to receiver');
 
   // Verify atomic lock rejects secondary attempt
-  try {
-    await fulfillmentService.acceptPlatformDeliveryJob(deliveryA.id, candidatePriya.driverId, candidatePriya.coords);
-    throw new Error('Assertion failed: Secondary claim was not rejected by concurrency lock!');
-  } catch (err: any) {
-    console.log(`✓ Verified: Concurrency guard rejected second driver claim: "${err.message}"`);
-  }
+  await assert.rejects(fulfillmentService.acceptPlatformDeliveryJob(deliveryA.id, candidatePriya.driverId, candidatePriya.coords));
+  console.log('✓ Duplicate driver claim rejected');
 
   console.log(`\n--- TEST 2: DRIVER CANCELLATION & REASSIGNMENT ---`);
   const cancelledDelivery = await fulfillmentService.cancelPlatformDriver(
@@ -121,13 +119,14 @@ async function runFulfillmentTests() {
     where: { id: deliveryA.id },
   });
 
+  const receiverUser = await prisma.user.findUniqueOrThrow({ where: { email: 'director@hopeshelter.org' } });
   // Stage 1: Pickup OTP at Donor
-  console.log(`Submitting Pickup OTP: ${activeDelivery!.pickupOtp}...`);
+  console.log('Submitting donor pickup code as assigned coordinator');
   const pickedUpDelivery = await fulfillmentService.verifyPickupOtp(
     deliveryA.id,
-    activeDelivery!.pickupOtp,
-    donorUser!.id,
-    'DONOR'
+    OtpService.reveal(activeDelivery!.pickupOtp,`${activeDelivery!.allocationId}:PICKUP`),
+    receiverUser.id,
+    'RECEIVER'
   );
   console.log(`Pickup verified! Status: ${pickedUpDelivery.status}, Pickup Time: ${pickedUpDelivery.pickupVerifiedAt?.toISOString()}`);
   if (pickedUpDelivery.status !== DeliveryStatus.PICKED_UP || !pickedUpDelivery.pickupVerifiedAt) {
@@ -136,19 +135,15 @@ async function runFulfillmentTests() {
   console.log('✓ Verified: Stage 1 Pickup OTP handoff completed');
 
   // Verify delivery OTP is rejected before arrival
-  try {
-    await fulfillmentService.verifyPickupOtp(deliveryA.id, '9999'); // Invalid OTP
-    throw new Error('Assertion failed: Invalid OTP was accepted!');
-  } catch (err: any) {
-    console.log(`✓ Verified: Invalid OTP correctly rejected: "${err.message}"`);
-  }
+  await assert.rejects(fulfillmentService.verifyPickupOtp(deliveryA.id, '999999', receiverUser.id));
+  console.log('✓ Replayed pickup verification rejected');
 
   // Stage 2: Delivery OTP at Receiver
-  console.log(`Submitting Delivery OTP: ${activeDelivery!.deliveryOtp}...`);
+  console.log('Submitting receiver delivery code as assigned coordinator');
   const completionResult = await fulfillmentService.verifyDeliveryOtp(
     deliveryA.id,
-    activeDelivery!.deliveryOtp,
-    'receiver-user-id',
+    OtpService.reveal(activeDelivery!.deliveryOtp,`${activeDelivery!.allocationId}:DELIVERY`),
+    receiverUser.id,
     'RECEIVER'
   );
 

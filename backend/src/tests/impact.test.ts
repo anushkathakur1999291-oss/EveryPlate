@@ -49,14 +49,15 @@ async function runImpactTests() {
   try {
     // 1. Fetch Users
     const usersRes = await request('GET', '/api/auth/users');
-    const donor = usersRes.body.find((u: any) => u.email === 'marco@greenbistro.com');
-    const receiverHope = usersRes.body.find((u: any) => u.email === 'director@hopeshelter.org');
-    const receiverStJude = usersRes.body.find((u: any) => u.email === 'kitchen@stjudes.org');
-    const driver = usersRes.body.find((u: any) => u.email === 'alex.rivera@rescue.org');
+    const fixtures = await prisma.user.findMany({ include: { donorProfile: true, receiverProfile: true, driverProfile: true } });
+    const donor = fixtures.find((u: any) => u.email === 'marco@greenbistro.com')!;
+    const receiverHope = fixtures.find((u: any) => u.email === 'director@hopeshelter.org')!;
+    const receiverStJude = fixtures.find((u: any) => u.email === 'kitchen@stjudes.org')!;
+    const driver = fixtures.find((u: any) => u.email === 'alex.rivera@rescue.org')!;
 
     // 2. Initial baseline verification
     console.log('\n--- TEST 1: INITIAL IMPACT SUMMARY (ZERO BASELINE) ---');
-    const initRes = await request('GET', '/api/impact/summary');
+    const initRes = await request('GET', '/api/impact/summary', undefined, { 'x-user-id': donor!.id });
     if (initRes.status !== 200 || initRes.body.totalMealsRescued !== 0) {
       throw new Error(`Expected 0 initial meals rescued, got ${initRes.body.totalMealsRescued}`);
     }
@@ -77,7 +78,7 @@ async function runImpactTests() {
     );
     const donation1 = createDonationRes1.body.donation;
     const alloc1 = donation1.allocations[0];
-    const receiverUser1 = usersRes.body.find((u: any) => u.receiverProfile?.id === alloc1.receiverId);
+    const receiverUser1 = fixtures.find((u: any) => u.receiverProfile?.id === alloc1.receiverId)!;
 
     // Accept & select PLATFORM_DRIVER
     await request('POST', `/api/allocations/${alloc1.id}/accept`, {}, { 'x-user-id': receiverUser1.id });
@@ -116,7 +117,7 @@ async function runImpactTests() {
     );
     const donation2 = createDonationRes2.body.donation;
     const alloc2 = donation2.allocations[0];
-    const receiverUser2 = usersRes.body.find((u: any) => u.receiverProfile?.id === alloc2.receiverId);
+    const receiverUser2 = fixtures.find((u: any) => u.receiverProfile?.id === alloc2.receiverId)!;
 
     // Accept & select RECEIVER_LOGISTICS
     await request('POST', `/api/allocations/${alloc2.id}/accept`, {}, { 'x-user-id': receiverUser2.id });
@@ -144,7 +145,7 @@ async function runImpactTests() {
 
     // 5. Test Enhanced Impact Summary API
     console.log('\n--- TEST 4: VERIFY ENVIRONMENTAL EQUIVALENTS & TRANSIT EFFICIENCY ---');
-    const impactRes = await request('GET', '/api/impact/summary');
+    const impactRes = await request('GET', '/api/impact/summary', undefined, { 'x-user-id': donor!.id });
     if (impactRes.status !== 200) throw new Error(`Failed to get impact summary: ${JSON.stringify(impactRes.body)}`);
 
     const body = impactRes.body;

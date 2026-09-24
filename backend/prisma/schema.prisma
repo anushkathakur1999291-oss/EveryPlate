@@ -150,6 +150,7 @@ model DriverProfile {
   fullName         String
   vehicleType      String             // BIKE, CAR, VAN, FOOT
   currentLatitude  Float?
+  locationUpdatedAt DateTime?
   currentLongitude Float?
   isAvailable      Boolean            @default(true)
   phone            String             // Kept private server-side
@@ -174,6 +175,7 @@ model Donation {
   safeDeadline         DateTime             // Safe-donation expiration deadline
   imageUrl             String?
   notes                String?
+  nextMatchAttemptAt   DateTime?
   status               DonationStatus       @default(CREATED)
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
@@ -182,6 +184,7 @@ model Donation {
   allocations          DonationAllocation[]
   @@index([donorId, createdAt])
   @@index([status, safeDeadline])
+  @@index([status, nextMatchAttemptAt, safeDeadline])
 
 }
 

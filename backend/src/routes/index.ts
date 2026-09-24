@@ -36,6 +36,7 @@ router.post('/allocations/:id/fulfillment', requireRole(Role.RECEIVER), validate
 router.get('/receivers/deliveries/:deliveryId/delivery-otp', ReceiverController.getDeliveryOtp);
 
 // 4. Drivers (Platform Driver operations)
+router.patch('/drivers/my/location', requireRole(Role.DRIVER), validate(schemas.coordinates), DriverController.updateLocation);
 router.get('/drivers/available-jobs', requireRole(Role.DRIVER), DriverController.getAvailableJobs);
 router.get('/drivers/my-jobs', requireRole(Role.DRIVER), DriverController.getMyJobs);
 router.post('/deliveries/:id/claim', requireRole(Role.DRIVER), validate(schemas.claim), DriverController.claimJob);

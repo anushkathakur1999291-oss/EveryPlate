@@ -80,6 +80,7 @@ export const api = {
     request<{ deliveryOtp: string; status: string }>(`/receivers/deliveries/${deliveryId}/delivery-otp`),
 
   // Platform Drivers
+  updateDriverLocation: (coords: { latitude: number; longitude: number }) => request('/drivers/my/location', { method: 'PATCH', body: JSON.stringify(coords) }),
   getAvailableJobs: (cursor?: string) => request<Page<any>>(`/drivers/available-jobs${pageQuery(cursor)}`, {}, true),
   getMyJobs: () => request<any[]>('/drivers/my-jobs'),
   claimJob: (deliveryId: string, coords?: { latitude: number; longitude: number }) =>

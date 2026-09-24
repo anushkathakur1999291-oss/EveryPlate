@@ -37,14 +37,14 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/ready', async (_req, res) => {
-  try { await prisma.$queryRaw`SELECT 1`; res.json({ status: 'ready' }); }
+  try { await prisma.$queryRaw`SELECT tokenHash FROM Session LIMIT 1`; res.json({ status: 'ready' }); }
   catch { res.status(503).json({ status: 'unavailable' }); }
 });
 
 // API Routes
 app.use('/api', apiRouter);
 if (process.env.NODE_ENV === 'production') {
-  const publicDir = path.resolve(__dirname, '../public');
+  const publicDir = path.resolve(process.env.FRONTEND_DIST_DIR || path.join(__dirname, '../public'));
   app.use(express.static(publicDir, { setHeaders(res, filename) { if (filename.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); } }));
   app.get('/', (_req, res) => res.sendFile(path.join(publicDir, 'index.html')));
 }

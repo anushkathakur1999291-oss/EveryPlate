@@ -5,6 +5,7 @@ const text = z.string().trim().min(1).max(500);
 const mode = z.enum(['PLATFORM_DRIVER', 'RECEIVER_LOGISTICS']);
 const personnel = { driverName: text.optional(), vehicleInfo: text.optional(), contactMechanism: text.optional() };
 export const schemas = {
+  coordinates: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) }).strict(),
   donation: z.object({
     foodCategory: z.enum(['COOKED_MEALS', 'PACKAGED_GOODS', 'PRODUCE', 'BAKERY', 'DAIRY']),
     foodDescription: text, quantity: z.number().int().positive().max(100000), unit: z.literal('meals').optional(),

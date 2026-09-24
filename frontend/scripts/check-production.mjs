@@ -1,0 +1,50 @@
+import { chromium } from 'playwright';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import https from 'node:https';
+import http from 'node:http';
+import assert from 'node:assert/strict';
+const root=resolve(import.meta.dirname,'../..');
+const dir=mkdtempSync('/tmp/annsafe-production-');
+const origin='https://127.0.0.1:3443';
+const env={...process.env,NODE_ENV:'production',DEMO_MODE:'false',DATABASE_URL:`file:${dir}/production.db`,OTP_ENCRYPTION_KEY:randomBytes(32).toString('hex'),CORS_ORIGINS:origin,PORT:'4401',FRONTEND_DIST_DIR:`${root}/frontend/dist`};
+const run=(args,input)=>{const r=spawnSync(process.execPath,args,{cwd:`${root}/backend`,env,input,encoding:'utf8'});assert.equal(r.status,0,r.stderr||r.stdout);};
+run(['node_modules/prisma/build/index.js','migrate','deploy']);
+const password=randomBytes(24).toString('hex');
+run(['dist/scripts/create-account.js'],JSON.stringify({role:'ADMIN',name:'Production check',email:'admin@test.invalid',password}));
+const cert=spawnSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',`${dir}/key.pem`,'-out',`${dir}/cert.pem`,'-days','1','-subj','/CN=localhost'],{encoding:'utf8'});
+assert.equal(cert.status,0,'Temporary TLS certificate generation failed');
+const backend=spawn(process.execPath,['dist/app.js'],{cwd:`${root}/backend`,env,stdio:['ignore','pipe','pipe']});
+let serverLog='';backend.stdout.on('data',b=>serverLog+=b);backend.stderr.on('data',b=>serverLog+=b);
+const proxy=https.createServer({key:readFileSync(`${dir}/key.pem`),cert:readFileSync(`${dir}/cert.pem`)},(req,res)=>{
+ const upstream=http.request({hostname:'127.0.0.1',port:4401,path:req.url,method:req.method,headers:req.headers},reply=>{res.writeHead(reply.statusCode,reply.headers);reply.pipe(res);});
+ upstream.on('error',()=>{res.writeHead(502);res.end();});req.pipe(upstream);
+});
+let browser;
+try {
+ await new Promise(resolve=>proxy.listen(3443,'127.0.0.1',resolve));
+ let ready=false;
+ for(let i=0;i<50;i++){try{if((await fetch('http://127.0.0.1:4401/ready')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}
+ assert(ready,'Production backend did not become ready: '+serverLog);
+ browser=await chromium.launch({executablePath:process.env.BROWSER_PATH||(existsSync('/usr/bin/brave-origin')?'/usr/bin/brave-origin':undefined),args:['--no-sandbox']});
+ const context=await browser.newContext({ignoreHTTPSErrors:true});
+ const page=await context.newPage();
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(origin);
+ await page.getByLabel('Email').fill('admin@test.invalid');
+ await page.getByLabel('Password').fill(password);
+ await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await page.locator('.product-header').waitFor();
+ const cookie=(await context.cookies()).find(c=>c.name==='__Host-rescue_session');
+ assert(cookie?.secure && cookie.httpOnly && cookie.sameSite==='Strict');
+ assert.equal((await context.request.get(`${origin}/api/auth/users`)).status(),404);
+ await page.reload();await page.locator('.product-header').waitFor();
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();
+ await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();
+ assert.equal((await context.request.get(`${origin}/api/auth/me`,{headers:{cookie:`__Host-rescue_session=${cookie.value}`,'x-user-id':'forged'}})).status(),401);
+ assert.deepEqual(errors,[]);
+ console.log('PASS production account provisioning, built static UI, HTTPS Secure cookie, refresh, logout revocation and disabled demo directory');
+ console.log(`Isolated production-check database: ${dir}`);
+}finally{await browser?.close();proxy.closeAllConnections();await new Promise(r=>proxy.close(r));backend.kill('SIGTERM');}

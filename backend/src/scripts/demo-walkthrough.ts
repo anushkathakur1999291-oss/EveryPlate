@@ -41,16 +41,11 @@ class DemoRunner {
 ╚═══════════════════════════════════════════════════════════════════════════╝
 `)));
 
-    // 1. Detect if server is running on 4000, or spin up in-process
-    await this.setupEnvironment();
-
-    // 2. Connect Socket.io client to monitor real-time event bus
-    await this.setupSocketListener();
-
-    // 3. Reset database
-    console.log(`\n${bold(magenta('[PRE-DEMO INITIALIZATION]'))} Reseeding database to baseline scenario...`);
+    if (!process.env.DATABASE_URL?.startsWith('file:/tmp/')) throw new Error('Run npm run demo to use an isolated temporary database');
+    console.log('Preparing a disposable demonstration database…');
     await seedDatabase();
-    console.log(green('✓ Database reset: 1 Admin, 3 Donors, 4 Receivers, 3 Drivers ready.\n'));
+    await this.setupEnvironment();
+    await this.setupSocketListener();
 
     // Step-by-step walkthrough
     await this.step1_LayaAIIntake();
@@ -69,24 +64,10 @@ class DemoRunner {
   }
 
   private async setupEnvironment() {
-    process.stdout.write(gray('Detecting Surplus-To-Shelter backend server... '));
-    const isRunning = await this.pingServer('http://localhost:4000');
-    if (isRunning) {
-      this.baseUrl = 'http://localhost:4000';
-      console.log(green('Connected to active server at http://localhost:4000'));
-      console.log(yellow('  → Real-time WebSocket events will broadcast to connected browser clients!'));
-    } else {
-      console.log(yellow('No external server on port 4000. Launching in-process server on port 4005...'));
-      const DEMO_PORT = 4005;
-      await new Promise<void>((resolve) => {
-        server.listen(DEMO_PORT, () => {
-          this.serverStartedHere = true;
-          this.baseUrl = `http://localhost:${DEMO_PORT}`;
-          console.log(green(`✓ In-process backend server listening at ${this.baseUrl}`));
-          resolve();
-        });
-      });
-    }
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    this.serverStartedHere = true;
+    this.baseUrl = `http://127.0.0.1:${(server.address() as any).port}`;
+    console.log(`Isolated demo server: ${this.baseUrl}`);
   }
 
   private async pingServer(url: string): Promise<boolean> {
@@ -103,8 +84,9 @@ class DemoRunner {
   }
 
   private async setupSocketListener() {
+    const admin = await prisma.user.findUniqueOrThrow({ where: { email: 'admin@surplustoshelter.org' } });
     return new Promise<void>((resolve) => {
-      this.socket = ClientIO(this.baseUrl, { transports: ['websocket'] });
+      this.socket = ClientIO(this.baseUrl, { transports: ['websocket'], auth: { userId: admin.id } });
       this.socket.on('connect', () => {
         // Join admin and driver rooms to intercept all broadcast events
         this.socket?.emit('join:role', 'ADMIN');
@@ -140,7 +122,7 @@ class DemoRunner {
     method: 'GET' | 'POST',
     path: string,
     body?: any,
-    userEmail?: string
+    userEmail: string = 'admin@surplustoshelter.org'
   ): Promise<ApiResponse<T>> {
     return new Promise((resolve, reject) => {
       const url = new URL(path, this.baseUrl);
@@ -197,7 +179,7 @@ class DemoRunner {
 
     if (res.status !== 200) throw new Error(`AI Intake failed: ${JSON.stringify(res.body)}`);
 
-    console.log(green('\n✓ Sub-35ms Laya Extraction Successful:'));
+    console.log(green('\n✓ Kitchen-note extraction completed:'));
     console.log(`  • Food Category   : ${bold(res.body.foodCategory)} (Confidence: ${res.body.confidence})`);
     console.log(`  • Extracted Qty   : ${bold(res.body.quantity + ' ' + res.body.unit)}`);
     console.log(`  • Safe Deadline   : ${new Date(res.body.safeDeadline).toLocaleTimeString()} (${res.body.urgencyTier} urgency)`);
@@ -286,13 +268,7 @@ class DemoRunner {
     console.log(green(`✓ Hope Shelter notified of ${allocRes.body[0].allocatedQuantity} meals from The Green Bistro`));
 
     // Query Laya Dispatch Advisor
-    const advisorRes = await this.request('POST', '/api/ai/recommend-mode', {
-      timeRemainingMins: 180,
-      availablePlatformDrivers: 3,
-      distanceKm: 1.8,
-      receiverHasOwnLogistics: true,
-      foodCategory: 'COOKED_MEALS',
-    });
+    const advisorRes = await this.request('POST', '/api/ai/recommend-mode', { allocationId: this.hopeAllocationId }, 'director@hopeshelter.org');
 
     if (advisorRes.status !== 200) throw new Error('Laya Dispatch Advisor query failed');
 
@@ -392,28 +368,12 @@ class DemoRunner {
     console.log(`  • ETA to Pickup     : ${job.etaToPickupMinutes} mins`);
     console.log(`  • Total Transit ETA : ${job.totalEtaMinutes} mins`);
 
-    // Alex Rivera claims the job
-    console.log(`\nAlex Rivera claims job #${this.stJudeDeliveryId.slice(0, 8)}...`);
-    const claimAlex = await this.request(
-      'POST',
-      `/api/deliveries/${this.stJudeDeliveryId}/claim`,
-      { latitude: 40.7180, longitude: -74.0010 },
-      'alex.rivera@rescue.org'
-    );
-
-    if (claimAlex.status !== 200) throw new Error(`Alex claim failed: ${JSON.stringify(claimAlex.body)}`);
-    console.log(green(`✓ Dispatched to Alex Rivera (Lowest Total ETA: ${claimAlex.body.totalEtaMinutes} mins)`));
-
-    // Priya Sharma attempts simultaneous claim
-    console.log(`Priya Sharma attempts concurrent claim for same delivery...`);
-    const claimPriya = await this.request(
-      'POST',
-      `/api/deliveries/${this.stJudeDeliveryId}/claim`,
-      { latitude: 40.7300, longitude: -73.9950 },
-      'priya.sharma@rescue.org'
-    );
-
-    console.log(yellow(`✓ Concurrency Guard Active: Secondary claim rejected: "${claimPriya.body.error}"`));
+    const [claimAlex, claimPriya] = await Promise.all([
+      this.request('POST', `/api/deliveries/${this.stJudeDeliveryId}/claim`, { latitude: 40.7180, longitude: -74.0010 }, 'alex.rivera@rescue.org'),
+      this.request('POST', `/api/deliveries/${this.stJudeDeliveryId}/claim`, { latitude: 40.7300, longitude: -73.9950 }, 'priya.sharma@rescue.org'),
+    ]);
+    if (claimAlex.status !== 200 || claimPriya.status !== 409) throw new Error('Concurrent dispatch did not select exactly the lowest-ETA courier');
+    console.log(green(`✓ Lowest-ETA window selected Alex (${claimAlex.body.totalEtaMinutes} estimated mins); competing claim rejected`));
     await sleep(600);
   }
 
@@ -421,7 +381,7 @@ class DemoRunner {
   private async step7_Stage1PickupOTPHandoff() {
     console.log(bold(cyan('\n═══════════════════════════════════════════════════════════════════════════')));
     console.log(bold(cyan('STEP 7: Stage 1 Cryptographic Pickup OTP Custody Handoff at Green Bistro')));
-    console.log(gray('Transporters arrive at Green Bistro. Chef Marco provides 4-digit verification tokens...'));
+    console.log(gray('Transporters arrive at Green Bistro. Chef Marco provides 6-digit verification tokens...'));
 
     // Fetch Pickup OTPs
     const otpResHope = await this.request(
@@ -440,20 +400,18 @@ class DemoRunner {
     );
     const otpStJude = otpResStJude.body.pickupOtp;
 
-    console.log(`\nDonor Pickup OTPs Generated (Cryptographic 4-Digit Tokens):`);
-    console.log(`  • Hope Shelter Slice (55 meals)   : [ ${bold(otpHope)} ]`);
-    console.log(`  • St. Jude Shelter Slice (15 meals): [ ${bold(otpStJude)} ]`);
+    console.log(`\nDonor Pickup OTPs Generated (Cryptographic 6-Digit Tokens):`);
 
     // Verify Brother Dave Pickup
     const verifyHope = await this.request('POST', `/api/deliveries/${this.hopeDeliveryId}/verify-pickup-otp`, {
       otp: otpHope,
-    });
+    }, 'director@hopeshelter.org');
     if (verifyHope.status !== 200) throw new Error('Pickup OTP verification failed for Hope Shelter');
 
     // Verify Alex Rivera Pickup
     const verifyStJude = await this.request('POST', `/api/deliveries/${this.stJudeDeliveryId}/verify-pickup-otp`, {
       otp: otpStJude,
-    });
+    }, 'alex.rivera@rescue.org');
     if (verifyStJude.status !== 200) throw new Error('Pickup OTP verification failed for St. Jude');
 
     console.log(green('\n✓ Both pickups verified in constant-time!'));
@@ -487,19 +445,17 @@ class DemoRunner {
     const otpStJude = otpResStJude.body.deliveryOtp;
 
     console.log(`\nReceiver Delivery OTPs:`);
-    console.log(`  • Hope Shelter Hand-off Token   : [ ${bold(otpHope)} ]`);
-    console.log(`  • St. Jude Hand-off Token       : [ ${bold(otpStJude)} ]`);
 
     // Complete Hope Shelter Delivery
     const completeHope = await this.request('POST', `/api/deliveries/${this.hopeDeliveryId}/verify-delivery-otp`, {
       otp: otpHope,
-    });
+    }, 'director@hopeshelter.org');
     if (completeHope.status !== 200) throw new Error('Delivery OTP verification failed for Hope Shelter');
 
     // Complete St. Jude Delivery
     const completeStJude = await this.request('POST', `/api/deliveries/${this.stJudeDeliveryId}/verify-delivery-otp`, {
       otp: otpStJude,
-    });
+    }, 'alex.rivera@rescue.org');
     if (completeStJude.status !== 200) throw new Error('Delivery OTP verification failed for St. Jude');
 
     console.log(green('\n✓ Both deliveries verified and completed!'));
@@ -568,21 +524,21 @@ class DemoRunner {
 
     for (const ev of this.socketEvents) {
       let preview = '';
-      if (ev.event === 'DONATION_CREATED') preview = `Donation #${ev.data?.id?.slice(0, 8)} (${ev.data?.quantity} meals)`;
-      else if (ev.event === 'MATCH_FOUND') preview = `To receiver #${ev.data?.receiverId?.slice(0, 8)} (${ev.data?.allocatedQuantity} meals)`;
+      if (ev.event === 'DONATION_CREATED') preview = `Donation #${ev.data?.id?.slice(0, 8)} changed`;
+      else if (ev.event === 'MATCH_FOUND') preview = `Allocation #${ev.data?.allocationId?.slice(0, 8)} proposed`;
       else if (ev.event === 'MATCH_ACCEPTED') preview = `Allocation #${ev.data?.id?.slice(0, 8)} accepted`;
       else if (ev.event === 'DRIVER_REQUESTED') preview = `Delivery #${ev.data?.id?.slice(0, 8)} in DRIVER_SEARCH`;
       else if (ev.event === 'DRIVER_ASSIGNED') preview = `Delivery #${ev.data?.id?.slice(0, 8)} assigned to courier`;
       else if (ev.event === 'RECEIVER_LOGISTICS_SELECTED') preview = `Delivery #${ev.data?.id?.slice(0, 8)} internal van`;
       else if (ev.event === 'PICKUP_VERIFIED') preview = `Delivery #${ev.data?.id?.slice(0, 8)} verified at donor`;
-      else if (ev.event === 'DELIVERY_VERIFIED') preview = `Delivery #${ev.data?.delivery?.id?.slice(0, 8)} verified at shelter`;
-      else if (ev.event === 'IMPACT_UPDATED') preview = `+${ev.data?.mealsRescued} meals, +${ev.data?.co2eAvoidedKg} kg CO2e`;
+      else if (ev.event === 'DELIVERY_VERIFIED') preview = `Delivery #${ev.data?.deliveryId?.slice(0, 8)} verified at shelter`;
+      else if (ev.event === 'IMPACT_UPDATED') preview = 'Impact totals changed; refetch authenticated snapshot';
       else preview = JSON.stringify(ev.data).slice(0, 30);
 
       console.log(`  ${gray(ev.time)}  ${green(ev.event.padEnd(28))}  ${preview}`);
     }
 
-    console.log(green('\n✓ Real-Time Sync Invariant: Every state mutation fired instant WebSocket push notifications!'));
+    console.log(green('\n✓ Walkthrough received privacy-safe state invalidations; REST remains authoritative.'));
     await sleep(600);
   }
 
@@ -593,7 +549,7 @@ class DemoRunner {
 ║            🎉 END-TO-END DEMONSTRATION SUCCESSFULLY COMPLETED!             ║
 ║                                                                           ║
 ║  All 12 Platform Invariants Verified:                                     ║
-║   1. Sub-35ms Laya System-1 AI Natural Language Extraction                ║
+║   1. Kitchen-note extraction with deterministic fallback                 ║
 ║   2. Two-Stage Hard Filter & Multi-Factor Matching Pipeline               ║
 ║   3. Concurrency-Safe 1:N Partial Donation Splitting (70 = 55 + 15)       ║
 ║   4. Zero Duplication of Parent Donation Records                          ║
@@ -603,18 +559,18 @@ class DemoRunner {
 ║   8. Cryptographic Constant-Time Stage 1 Pickup OTP Custody Handoff       ║
 ║   9. Cryptographic Constant-Time Stage 2 Delivery OTP Custody Handoff     ║
 ║  10. Atomic Capacity Reservation → Occupancy Committal Shift              ║
-║  11. Genuine EPA/UN FAO Impact Calculations on Verified Rescues           ║
+║  11. Estimated Environmental Impact from Verified Rescues                ║
 ║  12. Real-Time WebSocket Push Architecture across All Portals             ║
 ║                                                                           ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 `)));
 
-    console.log(bold('HACKATHON JUDGE TEST CREDENTIALS:'));
+    console.log(bold('ISOLATED DEMO IDENTITIES (not production credentials):'));
     console.log('  • Admin Portal    : ' + cyan('admin@surplustoshelter.org') + ' (Elena Rostova)');
     console.log('  • Donor Portal    : ' + cyan('marco@greenbistro.com') + ' (Chef Marco, The Green Bistro)');
     console.log('  • Receiver Portal : ' + cyan('director@hopeshelter.org') + ' (Sister Mary, Hope Shelter)');
     console.log('  • Driver Portal   : ' + cyan('alex.rivera@rescue.org') + ' (Alex Rivera, Platform Courier)');
-    console.log('\n  Frontend Dev URL : ' + bold('http://localhost:5173'));
+    console.log('\n  Frontend Dev URL : ' + bold('http://localhost:3000'));
     console.log('  Backend API URL  : ' + bold('http://localhost:4000') + '\n');
   }
 

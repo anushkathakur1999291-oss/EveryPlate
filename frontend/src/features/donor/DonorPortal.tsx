@@ -22,6 +22,7 @@ export const DonorPortal: React.FC = () => {
   const [foodDescription, setFoodDescription] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(30);
   const [hoursUntilDeadline, setHoursUntilDeadline] = useState<number>(3);
+  const [extractedDeadline, setExtractedDeadline] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>('');
 
   // Laya System-1 Intake Assistant State
@@ -67,7 +68,7 @@ export const DonorPortal: React.FC = () => {
     try {
       setIsSubmitting(true);
       setError('');
-      const safeDeadline = new Date(Date.now() + hoursUntilDeadline * 3600 * 1000).toISOString();
+      const safeDeadline = extractedDeadline || new Date(Date.now() + hoursUntilDeadline * 3600 * 1000).toISOString();
 
       await api.createDonation({
         foodCategory,
@@ -97,8 +98,10 @@ export const DonorPortal: React.FC = () => {
       setAiResult(res);
       setFoodCategory(res.foodCategory);
       setFoodDescription(res.foodDescription);
-      setQuantity(res.quantity);
-      setHoursUntilDeadline(Math.max(1, Math.round(res.safeHoursRemaining)));
+      setQuantity(res.unit.toLowerCase() === 'meals' ? res.quantity : 0);
+      setExtractedDeadline(res.safeDeadline);
+      setHoursUntilDeadline(Math.max(0, (Date.parse(res.safeDeadline) - Date.now()) / 3600000));
+      if (res.unit.toLowerCase() !== 'meals') setActionError('These notes use ' + res.unit + '. Enter the number of meal portions before posting; weight is not converted automatically.');
     } catch (err: any) {
       setActionError(err.message);
     } finally {
@@ -111,6 +114,7 @@ export const DonorPortal: React.FC = () => {
       const res = await api.getPickupOtp(deliveryId);
       setActivePickupOtp({ deliveryId, otp: res.pickupOtp });
     } catch (err: any) {
+      setActivePickupOtp({ deliveryId, otp: '' });
       setActionError(`Could not load OTP: ${err.message}`);
     }
   };
@@ -162,7 +166,7 @@ export const DonorPortal: React.FC = () => {
           {/* Laya System-1 AI Intake Assistant */}
           <details className="bg-stone-50    border border-stone-300 rounded-lg p-3.5 space-y-3">
             <summary className="cursor-pointer font-medium text-sm">Quick fill from kitchen notes</summary>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap gap-2 items-center justify-between">
               <div className="flex items-center gap-1.5 text-xs font-bold text-stone-700">
                 <Sparkles className="w-3.5 h-3.5 text-stone-700" />
                 <span>Quick fill from kitchen notes</span>
@@ -173,7 +177,7 @@ export const DonorPortal: React.FC = () => {
             </div>
 
             <p className="text-xs text-stone-600">
-              Type or paste raw kitchen notes to auto-extract category, quantity, deadline, and allergens.
+              Fill from kitchen notes, then check the meal count and safe deadline before posting. Suggested times are not food-safety certification.
             </p>
 
             <div className="space-y-2">
@@ -226,14 +230,14 @@ export const DonorPortal: React.FC = () => {
                 type="button"
                 onClick={() => handleAiParse()}
                 disabled={isAiLoading || !aiText.trim()}
-                className="w-full flex items-center justify-center gap-1.5 bg-stone-50   hover: hover: disabled:opacity-50 text-stone-950 font-semibold text-xs py-2 rounded-lg transition shadow-none"
+                className="w-full flex items-center justify-center gap-1.5 bg-stone-100 hover:bg-stone-200 disabled:opacity-50 text-stone-950 font-semibold text-xs py-2 rounded-lg transition shadow-none"
               >
                 {isAiLoading ? (
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                  <Zap className="w-3.5 h-3.5 text-stone-600" />
                 )}
-                <span>{isAiLoading ? 'Analyzing with Laya...' : 'Fill in donation details'}</span>
+                <span>{isAiLoading ? 'Reading notes...' : 'Fill in donation details'}</span>
               </button>
             </div>
 
@@ -305,9 +309,10 @@ export const DonorPortal: React.FC = () => {
                 <label className="block text-xs font-semibold text-stone-700 mb-1.5">Safe Shelf Life</label>
                 <select
                   aria-label="Safe deadline" value={hoursUntilDeadline}
-                  onChange={(e) => setHoursUntilDeadline(parseFloat(e.target.value))}
+                  onChange={(e) => { setHoursUntilDeadline(parseFloat(e.target.value)); setExtractedDeadline(null); }}
                   className="w-full bg-stone-50 border border-stone-200 text-stone-800 text-xs rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500"
                 >
+                  {extractedDeadline && <option value={hoursUntilDeadline}>From notes: {new Date(extractedDeadline).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</option>}
                   <option value={1.5}>1.5 Hours (High Urgency)</option>
                   <option value={3}>3 Hours (Standard Perishable)</option>
                   <option value={6}>6 Hours (Chilled)</option>
@@ -357,7 +362,7 @@ export const DonorPortal: React.FC = () => {
             <div className="space-y-4">
               {donations.map((d) => (
                 <div key={d.id} className="bg-white border border-stone-200 rounded-lg p-5 shadow-none space-y-4">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-emerald-500/20 text-emerald-800 border border-emerald-500/30">
@@ -442,7 +447,7 @@ export const DonorPortal: React.FC = () => {
               </p>
             </div>
             <div className="text-4xl font-mono font-semibold tracking-widest text-emerald-800 bg-stone-50 py-3 rounded-lg border border-stone-200">
-              {activePickupOtp.otp}
+              {activePickupOtp.otp || 'Unavailable'}
             </div>
             <button disabled={isReplacingCode} className="text-sm underline text-stone-600" onClick={async () => { setIsReplacingCode(true); try { const result = await api.reissueOtp(activePickupOtp.deliveryId, 'PICKUP'); setActivePickupOtp({ deliveryId: activePickupOtp.deliveryId, otp: result.otp }); } catch(err) { setActionError((err as Error).message); setActivePickupOtp(null); } finally { setIsReplacingCode(false); } }}>{isReplacingCode ? 'Replacing code…' : 'Generate a replacement code'}</button>
             <button
