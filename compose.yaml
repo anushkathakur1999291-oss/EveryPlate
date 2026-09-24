@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      NODE_ENV: production
+      DEMO_MODE: "false"
+      DATABASE_URL: file:/data/rescue.db
+      OTP_ENCRYPTION_KEY: ${OTP_ENCRYPTION_KEY:?Set a persistent 64-character hex key}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set the HTTPS public origin}
+    volumes:
+      - rescue-data:/data
+    restart: unless-stopped
+    stop_grace_period: 15s
+volumes:
+  rescue-data:
