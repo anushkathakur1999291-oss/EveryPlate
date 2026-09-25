@@ -17,7 +17,7 @@ export class AuthController {
       if (!await verifyPassword(parsed.data.password, user?.passwordHash) || !user) return res.status(401).json({ error: 'Email or password is incorrect' });
       if (!user.passwordHash?.startsWith('scrypt-v1:')) await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(parsed.data.password) } });
       const { token, expiresAt } = await createSession(user.id);
-      res.cookie(sessionCookie, token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/', expires: expiresAt });
+      res.cookie(sessionCookie, token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', expires: expiresAt });
       res.json({ authenticated: true });
     } catch (err) { respondError(req, res, err); }
   }
@@ -26,7 +26,7 @@ export class AuthController {
       const token = cookieToken(req.headers.cookie);
       if (token) await prisma.session.deleteMany({ where: { tokenHash: tokenHash(token) } });
       if (req.user) SocketService.disconnectUser(req.user.id);
-      res.clearCookie(sessionCookie, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
+      res.clearCookie(sessionCookie, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
       res.status(204).end();
     } catch (err) { respondError(req, res, err); }
   }
