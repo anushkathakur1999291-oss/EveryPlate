@@ -283,38 +283,53 @@ Leaflet is used for map rendering.
 # Architecture
 
 ```text
-                    ┌─────────────────────┐
-                    │      Frontend       │
-                    │ React + TypeScript  │
-                    │ Vite + Tailwind     │
-                    └──────────┬──────────┘
-                               │
-                         REST / WebSocket
-                               │
-                    ┌──────────▼──────────┐
-                    │       Backend       │
-                    │ Express + TypeScript│
-                    └──────────┬──────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-        ┌─────▼─────┐    ┌─────▼─────┐   ┌────▼─────┐
-        │  Prisma   │    │ Socket.IO │   │ AI Layer │
-        │  + SQLite │    │ Realtime  │   │ Vision   │
-        └─────┬─────┘    └───────────┘   └────┬─────┘
-              │                                │
-              │                           ┌────▼─────┐
-              │                           │  Ollama  │
-              │                           │ Vision   │
-              │                           └──────────┘
-              │
-        ┌─────▼───────────────────────────────┐
-        │       Donation / Matching /         │
-        │       Allocation / Delivery         │
-        │       Impact Management             │
-        └────────────────────────────────────┘
-```
-
+                         ┌─────────────────────────┐
+                         │       EVERYPLATE        │
+                         │    Food Rescue Platform  │
+                         └────────────┬────────────┘
+                                      │
+                         ┌────────────▼────────────┐
+                         │        FRONTEND         │
+                         │                         │
+                         │ React + TypeScript      │
+                         │ Vite + Tailwind CSS     │
+                         │                         │
+                         │ Donor | Receiver        │
+                         │ Driver | Admin          │
+                         └────────────┬────────────┘
+                                      │
+                              REST API + WebSocket
+                                      │
+                         ┌────────────▼────────────┐
+                         │         BACKEND         │
+                         │                         │
+                         │ Express + TypeScript    │
+                         │                         │
+                         │ ┌─────────────────────┐ │
+                         │ │   Core Services     │ │
+                         │ │                     │ │
+                         │ │ Authentication      │ │
+                         │ │ Donations           │ │
+                         │ │ Matching Engine     │ │
+                         │ │ Allocation          │ │
+                         │ │ Fulfillment         │ │
+                         │ │ OTP Verification    │ │
+                         │ │ Impact Tracking     │ │
+                         │ └──────────┬──────────┘ │
+                         └────────────┼────────────┘
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    │                 │                 │
+           ┌────────▼────────┐ ┌──────▼───────┐ ┌──────▼───────┐
+           │   Prisma ORM    │ │   Socket.IO  │ │  AI Vision   │
+           │                 │ │              │ │              │
+           │ Database Access │ │ Real-time    │ │ Food Analysis│
+           └────────┬────────┘ │ Updates      │ └──────┬───────┘
+                    │          └──────────────┘        │
+           ┌────────▼────────┐                 ┌───────▼───────┐
+           │     SQLite      │                 │    Ollama     │
+           │    Database     │                 │ Vision Model  │
+           └─────────────────┘                 └───────────────┘
 ---
 
 # Tech Stack
