@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { HeartHandshake, PackageCheck, Truck, ChartNoAxesCombined, ArrowUpRight, LogOut } from 'lucide-react';
+import { HeartHandshake, PackageCheck, Truck, ChartNoAxesCombined, LogOut } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import type { Role } from '../types';
 const modes = [
@@ -14,7 +14,11 @@ export function Navbar() {
   const { isConnected } = useSocket();
   const visibleModes = demoMode ? modes : modes.filter(m => m.role === currentUser?.role);
   return <><a className="skip-link" href="#main-content">Skip to workspace</a><header className="product-header">
-    <div className="product-topline"><a href="#main-content" className="wordmark"><span className="brand-mark"><ArrowUpRight size={22}/></span><span>Annsave</span></a>
+    <div className="product-topline">
+      <a href="#main-content" className="wordmark">
+        <img src="/logo-icon.png" alt="Annsave Emblem" className="w-8 h-8 object-contain rounded-md" />
+        <span className="font-semibold tracking-tight text-lg">Annsave</span>
+      </a>
       <div className="account-tools">
         <span className="connection-indicator"><i className={isConnected ? 'connected' : ''}/>{isConnected ? 'Live updates' : 'Reconnecting'}</span>
         <ThemeToggle />

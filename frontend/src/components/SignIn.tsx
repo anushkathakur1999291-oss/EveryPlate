@@ -5,7 +5,7 @@ import { RoleCarousel } from './auth/RoleCarousel';
 import { RoleDetails } from './auth/RoleDetails';
 import { AuthForm } from './auth/AuthForm';
 import { ThemeToggle } from './ThemeToggle';
-import { ShieldCheck, ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 
 
 export function SignIn() {
@@ -183,9 +183,11 @@ export function SignIn() {
       {/* Editorial Topline Header */}
       <header className="w-full px-6 sm:px-10 lg:px-14 py-6 flex items-center justify-between border-b border-stone-200/60 dark:border-stone-800/80 z-40 bg-[#FAF8F5]/80 dark:bg-[#101211]/85 backdrop-blur-md sticky top-0 transition-colors duration-200">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-stone-900 dark:bg-emerald-950 text-white flex items-center justify-center shadow-xs border border-stone-800 dark:border-emerald-700/40">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          </div>
+          <img
+            src="/logo-icon.png"
+            alt="Annsave"
+            className="w-9 h-9 object-contain rounded-lg p-0.5 bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 shadow-2xs"
+          />
           <div>
             <h1 className="text-sm font-semibold tracking-tight text-stone-900 dark:text-white leading-none">
               Annsave
