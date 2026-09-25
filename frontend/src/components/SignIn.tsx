@@ -188,7 +188,7 @@ export function SignIn() {
           </div>
           <div>
             <h1 className="text-sm font-semibold tracking-tight text-stone-900 dark:text-white leading-none">
-              Surplus to Shelter
+              Annsave
             </h1>
             <span className="text-[10px] font-mono tracking-widest text-stone-500 dark:text-stone-400 uppercase">
               Metropolitan Recovery Protocol
@@ -288,7 +288,7 @@ export function SignIn() {
       {/* Editorial Baseline Footer */}
       <footer className="w-full px-6 sm:px-10 lg:px-14 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-stone-200/60 dark:border-stone-800/80 text-[11px] font-mono text-stone-500 dark:text-stone-400 z-40 bg-[#FAF8F5]/80 dark:bg-[#101211]/85 backdrop-blur-md transition-colors duration-200">
         <div className="flex items-center gap-4">
-          <span>Surplus to Shelter · Dual Fulfillment Protocol</span>
+          <span>Annsave · Dual Fulfillment Protocol</span>
           <span className="hidden sm:inline">·</span>
           <span className="hidden sm:inline">Authoritative Capacityautorouting</span>
         </div>

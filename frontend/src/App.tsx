@@ -36,7 +36,7 @@ const AppContent: React.FC = () => {
         {currentUser?.role === 'ADMIN' && <AdminPortal />}
       </Suspense></main>
       <footer className="border-t border-stone-200 dark:border-stone-800/80 py-6 text-center text-xs text-stone-500 dark:text-stone-400">
-        Surplus to Shelter · Good food, delivered with care
+        Annsave · Good food, delivered with care
       </footer>
     </div>
   );
