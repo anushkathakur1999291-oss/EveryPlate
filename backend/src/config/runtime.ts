@@ -3,12 +3,17 @@ import 'dotenv/config';
 export const demoMode = process.env.DEMO_MODE === 'true';
 
 const configuredOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:5173').split(',').map(s => s.trim());
-export const allowedOrigins = configuredOrigins;
+export const allowedOrigins = [
+  ...configuredOrigins,
+  'https://annsave.vercel.app',
+];
 
-export function isOriginAllowed(origin?: string): boolean {
+export function isOriginAllowed(origin?: string, host?: string): boolean {
   if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
   if (origin.endsWith('.vercel.app')) return true;
+  if (host && (origin === `https://${host}` || origin === `http://${host}`)) return true;
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) return true;
   if (process.env.VERCEL) return true;
   if (process.env.NODE_ENV !== 'production') return true;
   return false;

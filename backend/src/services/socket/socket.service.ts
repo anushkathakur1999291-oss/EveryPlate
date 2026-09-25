@@ -1,6 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
-import { allowedOrigins } from '../../config/runtime';
+import { allowedOrigins, isOriginAllowed } from '../../config/runtime';
 import { resolveIdentity } from '../auth/auth.service';
 import { prisma } from '../../lib/prisma';
 import { canReadDelivery, deliveryInclude, isTransporter } from '../../middleware/access';
@@ -8,11 +8,17 @@ import { canReadDelivery, deliveryInclude, isTransporter } from '../../middlewar
 export class SocketService {
   private static io: SocketIOServer | null = null;
   static initialize(server: HttpServer) {
-    const io = this.io = new SocketIOServer(server, { cors: { origin: allowedOrigins, credentials: true }, maxHttpBufferSize: 8192 });
+    const io = this.io = new SocketIOServer(server, {
+      cors: {
+        origin: (origin, callback) => callback(null, isOriginAllowed(origin)),
+        credentials: true,
+      },
+      maxHttpBufferSize: 8192,
+    });
     io.use(async (socket, next) => {
       try {
         const origin = socket.handshake.headers.origin;
-        if (origin && !allowedOrigins.includes(origin)) return next(new Error('Origin not allowed'));
+        if (origin && !isOriginAllowed(origin, socket.handshake.headers.host)) return next(new Error('Origin not allowed'));
         const user = await resolveIdentity(socket.handshake.headers.cookie, socket.handshake.auth?.userId);
         if (!user) return next(new Error('Authentication required'));
         socket.data.user = user;

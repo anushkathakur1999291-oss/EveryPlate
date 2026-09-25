@@ -91,9 +91,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 export default app;
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = app;
   (module.exports as any).default = app;
   (module.exports as any).app = app;
+  (module.exports as any).server = server;
+  (module.exports as any).io = io;
 }
 
 const PORT = process.env.PORT || 4000;
